@@ -164,12 +164,11 @@ implement gini index.
                         #(10.12493903 3.234550982 1)
                         #(6.642287351 3.319983761 1)))
 
-#;(time (get-best-split data-set gini-index (list 0 1 2 3) 4))
-(time (get-best-split TEST-DATA gini-index (list 0 1) 2))
+(time (get-best-split data-set gini-index (list 0 1 2 3) 4))
+#;(time (get-best-split TEST-DATA gini-index (list 0 1) 2))
 
 #|
 Improvements to do:
-- struct instead of hashes for splits
 - Memoization:
   If I'm reading this right, for a given data set, you should be able
   to memoize calls to `data-get-col`.
