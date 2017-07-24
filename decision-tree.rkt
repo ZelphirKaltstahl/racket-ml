@@ -5,53 +5,62 @@ Implementation adapted from:
 http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-python/
 |#
 
-(require "csv-to-vector.rkt")
+(require "csv-to-list.rkt")
 (provide (all-defined-out))
 
+;; =========================================================
+;; ABSTRACTION LAYER
+;; (for data representation)
+;; =========================================================
 (define (data-empty? data)
-  (= (data-length data) 0))
+  (empty? data))
 (define (data-first data)
-  (vector-ref (vector-take data 1) 0))
+  (first data))
 (define (data-rest data)
-  (vector-take-right data (- (data-length data) 1)))
-(define (data-length a-data-set)
-  (vector-length a-data-set))
-(define (data-point-length a-data-set)
-  (vector-length a-data-set))
-(define (data-filter predicate a-data-set)
-  (vector-filter predicate a-data-set))
-(define (data-map procedure a-data-set)
-  (vector-map procedure a-data-set))
+  (rest data))
+(define (data-length data)
+  (length data))
+(define (data-point-length data-point)
+  (vector-length data-point))
+(define (data-filter predicate data)
+  (filter predicate data))
+(define (data-partition predicate data)
+  (partition predicate data))
+(define (data-map procedure data)
+  (map procedure data))
 (define (data-get-col data col-index)
   (data-map (lambda (data-point)
               (data-point-get-col data-point col-index))
             data))
-(define (data-get-row data row-index)
-  (vector-ref data row-index))
+(define (data-point-get-col data-point col-index)
+  (vector-ref data-point col-index))
+
+(struct Split
+  (index value subsets cost)
+  #:transparent)
+;; =========================================================
 
 (define (class-equals? class-1 class-2)
   (= class-1 class-2))
-
-(define (data-point-get-col data-point col-index)
-  (vector-ref data-point col-index))
 
 (define FILE-PATH "data_banknote_authentication.csv")
 (define COLUMN-CONVERTERS (list string->number
                                 string->number
                                 string->number
                                 string->number
-                                (lambda (a-class)
-                                  (inexact->exact
-                                   (string->number a-class)))))
+                                (lambda (a-class) (inexact->exact (string->number a-class)))))
+(define data-set (all-rows FILE-PATH #:column-converters COLUMN-CONVERTERS))
 
-(define data-set (all-rows FILE-PATH
-                           #:column-converters COLUMN-CONVERTERS))
-
-(define FEATURE-COLUMN-INDICES (range (- (data-point-length (data-get-row data-set 0)) 1)))
-(define LABEL-COLUMN-INDEX (- (data-point-length (data-get-row data-set 0)) 1))
+#;(define FEATURE-COLUMN-INDICES
+  (range (- (data-point-length (data-first data-set)) 1)))
+#;(define LABEL-COLUMN-INDEX
+  (- (data-point-length (data-first data-set)) 1))
 
 
-
+;; =========================================================
+;; DECISION TREE ALGORITHM
+;; (its procedures)
+;; =========================================================
 (define (calc-proportion subset class-label label-column-index)
   (cond [(data-empty? subset) 0]
         [else (let* ([row-count (data-length subset)]
@@ -59,8 +68,7 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
                       (data-length
                        (data-filter (lambda (row)
                                       (class-equals? class-label
-                                                     (data-point-get-col row
-                                                                         label-column-index)))
+                                                     (data-point-get-col row label-column-index)))
                                     subset))]
                      [prop (/ class-count row-count)])
                 (* prop (- 1.0 prop)))]))
@@ -76,14 +84,18 @@ implement gini index.
   (apply +
          (map (lambda (subset)
                 (apply +
-                        (map
-                         (lambda (class-label)
-                           (calc-proportion subset class-label label-column-index))
-                         class-labels)))
+                        (map (lambda (class-label)
+                               (calc-proportion subset class-label label-column-index))
+                             class-labels)))
               subsets)))
 
 (define (split-data data index value)
-  (list (data-filter (lambda (data-point)
+  (let-values ([(part1 part2)
+                (data-partition (lambda (data-point)
+                                  (< (data-point-get-col data-point index) value))
+                                data)])
+    (list part1 part2))
+  #;(list (data-filter (lambda (data-point)
                        (< (data-point-get-col data-point index) value))
                      data)
         (data-filter (lambda (data-point)
@@ -99,14 +111,16 @@ implement gini index.
                                data
                                split-feature-index
                                split-value)
-    (let* ([class-labels (remove-duplicates (vector->list (data-get-col data label-column-index)))]
-           [new-split (split-data data split-feature-index split-value)]
-           [new-split-cost (split-cost-function new-split class-labels label-column-index)])
-      (cond [(< new-split-cost (hash-ref earlier-best-result 'cost))
-             (hash 'index split-feature-index
-                   'value split-value
-                   'subsets new-split
-                   'cost new-split-cost)]
+    (let* ([class-labels (remove-duplicates (data-get-col data label-column-index))]
+           [new-split-subsets (split-data data split-feature-index split-value)]
+           [new-split-cost (split-cost-function new-split-subsets
+                                                class-labels
+                                                label-column-index)])
+      (cond [(< new-split-cost (Split-cost earlier-best-result))
+             (Split split-feature-index
+                    split-value
+                    new-split-subsets
+                    new-split-cost)]
             [else earlier-best-result])))
 
   ;; iterates over values of one feature, to find the best split value
@@ -135,10 +149,9 @@ implement gini index.
                                             current-result))]))
   ;; starting the whole thing
   (iter-features feature-column-indices
-                 (hash 'index +inf.0
-                       'value +inf.0
-                       'subsets empty
-                       'cost +inf.0)))
+                 (Split +inf.0 +inf.0 empty +inf.0)))
+
+;; =========================================================
 
 (define TEST-DATA #(#(2.771244718 1.784783929 0)
                     #(1.728571309 1.169761413 0)
@@ -151,19 +164,14 @@ implement gini index.
                     #(10.12493903 3.234550982 1)
                     #(6.642287351 3.319983761 1)))
 
-
-(time (get-best-split data-set gini-index (list 0 1 2 3) 4))
+#;(time (get-best-split data-set gini-index (list 0 1 2 3) 4))
 #;(time (get-best-split TEST-DATA gini-index (list 0 1) 2))
 
 #|
 Improvements to do:
 - struct instead of hashes for splits
-- list of vectors instead of vector of vectors
-- vector-take-right is expensive
-- `split-data` could partition the data list in a single pass, instead
-of making two passes. (You can use the `partition` function from
-racket/list.)
-- If I'm reading this right, for a given data set, you should be able
-to memoize calls to `data-get-col`. (remember the columns, so that they don't need to be calculated again!)
--
+- Memoization:
+  If I'm reading this right, for a given data set, you should be able
+  to memoize calls to `data-get-col`.
+  (remember the columns, so that they don't need to be calculated again!)
 |#
