@@ -76,11 +76,10 @@ implement gini index.
   (apply +
          (map (lambda (subset)
                 (apply +
-                       (vector->list ;; possible performance issue
-                        (vector-map
+                        (map
                          (lambda (class-label)
                            (calc-proportion subset class-label label-column-index))
-                         class-labels))))
+                         class-labels)))
               subsets)))
 
 (define (split-data data index value)
@@ -100,7 +99,7 @@ implement gini index.
                                data
                                split-feature-index
                                split-value)
-    (let* ([class-labels (data-get-col data label-column-index)]
+    (let* ([class-labels (remove-duplicates (vector->list (data-get-col data label-column-index)))]
            [new-split (split-data data split-feature-index split-value)]
            [new-split-cost (split-cost-function new-split class-labels label-column-index)])
       (cond [(< new-split-cost (hash-ref earlier-best-result 'cost))
@@ -112,7 +111,7 @@ implement gini index.
 
   ;; iterates over values of one feature, to find the best split value
   (define (iter-values split-feature-index remaining-rows current-result)
-    (display "remaining rows: ") (display (data-length remaining-rows)) (newline)
+    ;;(display "remaining rows: ") (display (data-length remaining-rows)) (newline)
     (cond [(data-empty? remaining-rows) current-result]
           [else (iter-values split-feature-index
                              (data-rest remaining-rows)
@@ -155,3 +154,16 @@ implement gini index.
 
 (time (get-best-split data-set gini-index (list 0 1 2 3) 4))
 #;(time (get-best-split TEST-DATA gini-index (list 0 1) 2))
+
+#|
+Improvements to do:
+- struct instead of hashes for splits
+- list of vectors instead of vector of vectors
+- vector-take-right is expensive
+- `split-data` could partition the data list in a single pass, instead
+of making two passes. (You can use the `partition` function from
+racket/list.)
+- If I'm reading this right, for a given data set, you should be able
+to memoize calls to `data-get-col`. (remember the columns, so that they don't need to be calculated again!)
+-
+|#
