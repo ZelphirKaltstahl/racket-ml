@@ -3,7 +3,11 @@
 #|
 Attribution:
 
-This implementation of decision trees in Racket was written by Daniel Prager and was originally shared at: https://groups.google.com/forum/#!topic/racket-users/cPuTr8lrXCs
+This implementation of decision trees in Racket was written by Daniel Prager and
+was originally shared at:
+
+https://groups.google.com/forum/#!topic/racket-users/cPuTr8lrXCs
+
 With permission it was added to the project.
 |#
 
