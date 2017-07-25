@@ -241,11 +241,37 @@
                   "get-best-split does not give the best split")))
 
 (test-case "predict-at-leaf-node test case"
-  (check-equal? (predict-at-leaf-node (list #(1.0 2.0 0)
-                                            #(3.0 4.0 0)
-                                            #(5.0 6.0 1)
-                                            #(7.0 8.0 1)
-                                            #(9.0 0.0 1))
+  (check-equal? (predict-at-leaf-node (Node (list #(1.0 2.0 0)
+                                                  #(3.0 4.0 0)
+                                                  #(5.0 6.0 1)
+                                                  #(7.0 8.0 1)
+                                                  #(9.0 0.0 1))
+                                            empty
+                                            empty)
                                       2)
                 1
+                "predict-at-leaf-node does not give the correct label")
+  (check-equal? (predict-at-leaf-node (Node (list #(1.0 2.0 0)
+                                                  #(3.0 4.0 0)
+                                                  #(5.0 6.0 0)
+                                                  #(7.0 8.0 1)
+                                                  #(9.0 0.0 1))
+                                            empty
+                                            empty)
+                                      2)
+                0
                 "predict-at-leaf-node does not give the correct label"))
+
+(test-case "leaf-node? test case"
+  (check-true (leaf-node? (Node (list #(5.0 6.0 0)
+                                      #(7.0 8.0 1))
+                                empty
+                                empty))
+              "leaf-node? is not correct")
+  (check-false (leaf-node? (Node (list #(5.0 6.0 0)
+                                       #(7.0 8.0 1))
+                                 (Node (list #(5.0 6.0 0)) empty empty)
+                                 (Node (list #(7.0 8.0 1)) empty empty)))
+               "leaf-node? is not correct"))
+
+;; todo: design test case for split

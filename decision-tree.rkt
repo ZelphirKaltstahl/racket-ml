@@ -38,6 +38,17 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
 (struct Split
   (index value subsets cost)
   #:transparent)
+
+(struct Node
+  (data left right)
+  #:transparent)
+
+(define (make-leaf-node data)
+  (Node data empty empty))
+
+(define (leaf-node? node)
+  (and (empty? (Node-left node))
+       (empty? (Node-right node))))
 ;; =========================================================
 
 (define (class-equals? class-1 class-2)
@@ -50,23 +61,6 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
                                 string->number
                                 (lambda (a-class) (inexact->exact (string->number a-class)))))
 (define data-set (all-rows FILE-PATH #:column-converters COLUMN-CONVERTERS))
-
-#|
-CLASS LABELS
-We assume that class labels are in the last column.
-This is usually the case in available machine learning data sets.
-|#
-#;(define label-column-index
-  (sub1 (vector-length (first data-set))))
-#;(define class-labels (list 0 1)
-  #;(remove-duplicates
-   (data-get-col data-set label-column-index)))
-
-#;(define FEATURE-COLUMN-INDICES
-  (range (- (data-point-length (data-first data-set)) 1)))
-#;(define LABEL-COLUMN-INDEX
-  (- (data-point-length (data-first data-set)) 1))
-
 
 ;; =========================================================
 ;; DECISION TREE ALGORITHM
@@ -168,15 +162,69 @@ PREDICTING:
 - leaf node of the tree, majority class as prediction
 |#
 
-(define (predict-at-leaf-node leaf-data label-column-index)
-  (let-values ([(part1 part2)
-                (data-partition (lambda (data-point)
-                                  (= (data-point-get-col data-point label-column-index) 0))
-                                leaf-data)])
-    (let ([class-0-count (length part1)]
-          [class-1-count (length part2)])
-      (cond [(>= class-0-count class-1-count) 0]
-            [else 1]))))
+(define (predict-at-leaf-node leaf label-column-index)
+  (define partitioning-predicate
+    (lambda (data-point)
+      (= (data-point-get-col data-point label-column-index) 0)))
+  (let-values
+      ([(part1 part2) (data-partition partitioning-predicate (Node-data leaf))])
+      (cond [(>= (length part1) (length part2)) 0]
+            [else 1])))
+
+(define (split data
+               all-data-length
+               current-depth
+               feature-column-indices
+               label-column-index
+               #:max-depth [max-depth 6]
+               #:min-data-points [min-data-points 12]
+               #:min-data-points-ratio [min-data-points-ratio 0.02])
+  #|
+  Some stopping criteria predicates follow.
+  |#
+  (define (insufficient-data-points-for-split?)
+    (<= (data-length data) min-data-points))
+
+  (define (max-depth-reached?)
+    (>= current-depth max-depth))
+
+  (define (insufficient-data-points-ratio-for-split?)
+    (<= (/ (data-length data) all-data-length) min-data-points-ratio))
+
+  (cond [(or (max-depth-reached?)
+             (insufficient-data-points-for-split?)
+             (insufficient-data-points-ratio-for-split?))
+         (make-leaf-node data)]
+        [else
+         (let* ([a-split (get-best-split data
+                                         gini-index
+                                         feature-column-indices
+                                         label-column-index)]
+                [left (first (Split-subsets a-split))]
+                [right (second (Split-subsets a-split))])
+           #|
+           Here are the recursive calls.
+           This is not tail recursive, but since the data structure itself is recursive
+           and we only have as many procedure calls as there are branches in the tree,
+           it is OK to not be tail recursive here.
+           |#
+           (Node data
+                 (split left
+                        all-data-length
+                        (add1 current-depth)
+                        feature-column-indices
+                        label-column-index
+                        #:max-depth max-depth
+                        #:min-data-points min-data-points
+                        #:min-data-points-ratio min-data-points-ratio)
+                 (split right
+                        all-data-length
+                        (add1 current-depth)
+                        feature-column-indices
+                        label-column-index
+                        #:max-depth max-depth
+                        #:min-data-points min-data-points
+                        #:min-data-points-ratio min-data-points-ratio)))]))
 
 ;; =========================================================
 
