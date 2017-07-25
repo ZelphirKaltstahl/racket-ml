@@ -56,10 +56,12 @@ CLASS LABELS
 We assume that class labels are in the last column.
 This is usually the case in available machine learning data sets.
 |#
-(define class-labels
-  (remove-duplicates
-   (data-get-col data-set
-                 (sub1 (vector-length (first data-set))))))
+#;(define label-column-index
+  (sub1 (vector-length (first data-set))))
+#;(define class-labels (list 0 1)
+  #;(remove-duplicates
+   (data-get-col data-set label-column-index)))
+
 #;(define FEATURE-COLUMN-INDICES
   (range (- (data-point-length (data-first data-set)) 1)))
 #;(define LABEL-COLUMN-INDEX
@@ -95,7 +97,7 @@ implement gini index.
                 (apply +
                         (map (lambda (class-label)
                                (calc-proportion subset class-label label-column-index))
-                             class-labels)))
+                             (list 0 1))))
               subsets)))
 
 (define (split-data data index value)
@@ -166,8 +168,15 @@ PREDICTING:
 - leaf node of the tree, majority class as prediction
 |#
 
-#;(define (predict-at-leaf-node leaf-data)
-  ())
+(define (predict-at-leaf-node leaf-data label-column-index)
+  (let-values ([(part1 part2)
+                (data-partition (lambda (data-point)
+                                  (= (data-point-get-col data-point label-column-index) 0))
+                                leaf-data)])
+    (let ([class-0-count (length part1)]
+          [class-1-count (length part2)])
+      (cond [(>= class-0-count class-1-count) 0]
+            [else 1]))))
 
 ;; =========================================================
 

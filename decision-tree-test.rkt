@@ -151,7 +151,6 @@
                                    #(1.1 2.2 3.3 4.4 0))
                              (list #(1.1 2.2 3.3 4.4 1)
                                    #(1.1 2.2 3.3 4.4 1)))
-                            (list 0 1)
                             4)
                 0.0
                 "gini index of perfect split is not 0.0")
@@ -160,7 +159,6 @@
                                    #(1.1 2.2 3.3 4.4 1))
                              (list #(1.1 2.2 3.3 4.4 0)
                                    #(1.1 2.2 3.3 4.4 1)))
-                            (list 0 1)
                             4)
                 1.0
                 "gini index of worst split is not 1.0")
@@ -171,7 +169,6 @@
                         (list #(1.1 2.2 3.3 4.4 0)
                               #(1.1 2.2 3.3 4.4 0)
                               #(1.1 2.2 3.3 4.4 1)))
-                       (list 0 1)
                        4)
            0.888888888
            PRECISION
@@ -242,3 +239,13 @@
                                      #(6.642287351 3.319983761 1)))
                          0.0)
                   "get-best-split does not give the best split")))
+
+(test-case "predict-at-leaf-node test case"
+  (check-equal? (predict-at-leaf-node (list #(1.0 2.0 0)
+                                            #(3.0 4.0 0)
+                                            #(5.0 6.0 1)
+                                            #(7.0 8.0 1)
+                                            #(9.0 0.0 1))
+                                      2)
+                1
+                "predict-at-leaf-node does not give the correct label"))
