@@ -51,6 +51,7 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
                                 (lambda (a-class) (inexact->exact (string->number a-class)))))
 (define data-set (all-rows FILE-PATH #:column-converters COLUMN-CONVERTERS))
 
+(define memoized-columns (make-hash))
 #;(define FEATURE-COLUMN-INDICES
   (range (- (data-point-length (data-first data-set)) 1)))
 #;(define LABEL-COLUMN-INDEX
@@ -94,13 +95,7 @@ implement gini index.
                 (data-partition (lambda (data-point)
                                   (< (data-point-get-col data-point index) value))
                                 data)])
-    (list part1 part2))
-  #;(list (data-filter (lambda (data-point)
-                       (< (data-point-get-col data-point index) value))
-                     data)
-        (data-filter (lambda (data-point)
-                       (>= (data-point-get-col data-point index) value))
-                     data)))
+    (list part1 part2)))
 
 (define (get-best-split data
                         split-cost-function
@@ -110,13 +105,19 @@ implement gini index.
                                split-cost-function
                                data
                                split-feature-index
-                               split-value)
-    (let* ([class-labels (remove-duplicates (data-get-col data label-column-index))]
+                               split-value
+                               class-labels)
+    (let* (#;[class-labels (remove-duplicates (data-get-col data label-column-index))]
+           ;; With the assumption of binary classes,
+           ;; the runtime can be improved a lot here.
+           ;; #;(list 0 1)
            [new-split-subsets (split-data data split-feature-index split-value)]
            [new-split-cost (split-cost-function new-split-subsets
                                                 class-labels
                                                 label-column-index)])
       (cond [(< new-split-cost (Split-cost earlier-best-result))
+             (display "new best split cost:")
+             (displayln new-split-cost)
              (Split split-feature-index
                     split-value
                     new-split-subsets
@@ -124,9 +125,10 @@ implement gini index.
             [else earlier-best-result])))
 
   ;; iterates over values of one feature, to find the best split value
-  (define (iter-values split-feature-index remaining-rows current-result)
+  (define (iter-values split-feature-index remaining-rows current-result class-labels)
     ;;(display "remaining rows: ") (display (data-length remaining-rows)) (newline)
     (cond [(data-empty? remaining-rows) current-result]
+          [(= (Split-cost current-result) 0.0) current-result]
           [else (iter-values split-feature-index
                              (data-rest remaining-rows)
                              (select-better-split current-result
@@ -134,22 +136,41 @@ implement gini index.
                                                   data
                                                   split-feature-index
                                                   (data-point-get-col (data-first remaining-rows)
-                                                                      split-feature-index)))]))
+                                                                      split-feature-index)
+                                                  class-labels)
+                             class-labels)]))
 
   ;; iterates over features which might be the split feature
-  (define (iter-features remaining-feature-column-indices
-                         current-result)
+  (define (iter-features remaining-feature-column-indices current-result)
     (display "remaining feature column indices: ")
-    (display remaining-feature-column-indices)
-    (newline)
-    (cond [(empty? remaining-feature-column-indices) current-result]
-          [else (iter-features (rest remaining-feature-column-indices)
-                               (iter-values (first remaining-feature-column-indices)
-                                            data
-                                            current-result))]))
+    (displayln remaining-feature-column-indices)
+
+    (let ([class-labels (remove-duplicates (data-get-col data label-column-index))])
+      (cond [(empty? remaining-feature-column-indices) current-result]
+            [else (iter-features (rest remaining-feature-column-indices)
+                                 (iter-values (first remaining-feature-column-indices)
+                                              data
+                                              current-result
+                                              class-labels))])))
   ;; starting the whole thing
   (iter-features feature-column-indices
                  (Split +inf.0 +inf.0 empty +inf.0)))
+
+
+#|
+STOP CRITERIA:
+- only one class in a subset (cannot be split any further and does not need to be split)
+- maximum tree depth reached
+- minimum number of data points in a subset
+|#
+
+#|
+PREDICTING:
+- leaf node of the tree, majority class as prediction
+|#
+
+#;(define (predict-at-leaf-node leaf-data)
+  ())
 
 ;; =========================================================
 
@@ -164,7 +185,10 @@ implement gini index.
                         #(10.12493903 3.234550982 1)
                         #(6.642287351 3.319983761 1)))
 
-(time (get-best-split data-set gini-index (list 0 1 2 3) 4))
+(time
+ (let ([a (get-best-split data-set gini-index (list 0 1 2 3) 4)])
+   (displayln "finished")))
+
 #;(time (get-best-split TEST-DATA gini-index (list 0 1) 2))
 
 #|
