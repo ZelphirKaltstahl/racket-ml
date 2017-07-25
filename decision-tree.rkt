@@ -51,6 +51,11 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
                                 (lambda (a-class) (inexact->exact (string->number a-class)))))
 (define data-set (all-rows FILE-PATH #:column-converters COLUMN-CONVERTERS))
 
+#|
+CLASS LABELS
+We assume that class labels are in the last column.
+This is usually the case in available machine learning data sets.
+|#
 (define class-labels
   (remove-duplicates
    (data-get-col data-set
