@@ -51,6 +51,9 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
        (empty? (Node-right node))))
 ;; =========================================================
 
+(define (labels-elements-equal? lst)
+  (apply = lst))
+
 (define (class-equals? class-1 class-2)
   (= class-1 class-2))
 
@@ -150,12 +153,6 @@ implement gini index.
                  (Split +inf.0 +inf.0 empty +inf.0)))
 
 
-#|
-STOP CRITERIA:
-- only one class in a subset (cannot be split any further and does not need to be split)
-- maximum tree depth reached
-- minimum number of data points in a subset
-|#
 
 #|
 PREDICTING:
@@ -179,52 +176,58 @@ PREDICTING:
                #:max-depth [max-depth 6]
                #:min-data-points [min-data-points 12]
                #:min-data-points-ratio [min-data-points-ratio 0.02])
-  #|
-  Some stopping criteria predicates follow.
-  |#
-  (define (insufficient-data-points-for-split?)
-    (<= (data-length data) min-data-points))
 
-  (define (max-depth-reached?)
+  #|
+  STOP CRITERIA:
+  - only one class in a subset (cannot be split any further and does not need to be split)
+  - maximum tree depth reached
+  - minimum number of data points in a subset
+  - minimum ratio of data points in this subset
+  |#
+  (define (all-same-label? subset)
+    (labels-elements-equal? (data-get-col subset label-column-index)))
+
+  (define (insufficient-data-points-for-split? subset)
+    (<= (data-length subset) min-data-points))
+
+  (define (max-depth-reached? current-depth)
     (>= current-depth max-depth))
 
-  (define (insufficient-data-points-ratio-for-split?)
-    (<= (/ (data-length data) all-data-length) min-data-points-ratio))
+  (define (insufficient-data-points-ratio-for-split? subset)
+    (<= (/ (data-length subset) all-data-length) min-data-points-ratio))
 
-  (cond [(or (max-depth-reached?)
-             (insufficient-data-points-for-split?)
-             (insufficient-data-points-ratio-for-split?))
-         (make-leaf-node data)]
-        [else
-         (let* ([a-split (get-best-split data
-                                         gini-index
-                                         feature-column-indices
-                                         label-column-index)]
-                [left (first (Split-subsets a-split))]
-                [right (second (Split-subsets a-split))])
-           #|
-           Here are the recursive calls.
-           This is not tail recursive, but since the data structure itself is recursive
-           and we only have as many procedure calls as there are branches in the tree,
-           it is OK to not be tail recursive here.
-           |#
-           (Node data
-                 (split left
-                        all-data-length
-                        (add1 current-depth)
-                        feature-column-indices
-                        label-column-index
-                        #:max-depth max-depth
-                        #:min-data-points min-data-points
-                        #:min-data-points-ratio min-data-points-ratio)
-                 (split right
-                        all-data-length
-                        (add1 current-depth)
-                        feature-column-indices
-                        label-column-index
-                        #:max-depth max-depth
-                        #:min-data-points min-data-points
-                        #:min-data-points-ratio min-data-points-ratio)))]))
+  #|
+  Here we do the recursive splitting.
+  |#
+  (define (recursive-split subset current-depth)
+    (cond [(or (all-same-label? subset)
+               (max-depth-reached? current-depth)
+               (insufficient-data-points-for-split? subset)
+               (insufficient-data-points-ratio-for-split? subset))
+           (displayln "stopping condition met!")
+           (displayln "making leaf node with data:")
+           (displayln subset)
+           (make-leaf-node subset)]
+          [else
+           (display "input data for searching best split:") (displayln subset)
+           (let* ([best-split (get-best-split subset
+                                              gini-index
+                                              feature-column-indices
+                                              label-column-index)])
+             #|
+             Here are the recursive calls.
+             This is not tail recursive, but since the data structure itself is recursive
+             and we only have as many procedure calls as there are branches in the tree,
+             it is OK to not be tail recursive here.
+             |#
+             (display "got best split subsets:")
+             (displayln (Split-subsets best-split))
+             (Node subset
+                   (recursive-split (first (Split-subsets best-split))
+                                    (add1 current-depth))
+                   (recursive-split (second (Split-subsets best-split))
+                                    (add1 current-depth))))]))
+  (recursive-split data 1))
 
 ;; =========================================================
 
