@@ -104,3 +104,12 @@ With permission it was added to the project.
 model
 
 (check-model model (drop data 274))
+
+(random-seed 12345)
+(define data2 (shuffle banknote-data))
+(time
+ (void
+  (build-tree (take data2 274) 5 10)))
+(time
+ (for ([i (in-range 20)])
+   (build-tree (take data2 274) 5 10)))
