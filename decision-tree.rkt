@@ -71,10 +71,6 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
                    (lambda (exception)
                      (< (data-length subset) 2))])
     (apply = subset)))
-;; TODO:
-;; call with an exception handler,
-;; if the exception occurs (arity mismatch),
-;; then return boolen: data-length < 2
 
 (define (class-equals? class-1 class-2)
   (= class-1 class-2))
