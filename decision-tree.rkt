@@ -36,7 +36,10 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
   (vector-ref data-point col-index))
 
 (struct Split
-  (index value subsets cost)
+  (index
+   value
+   subsets
+   cost)
   #:transparent)
 
 #;(struct Node
@@ -50,8 +53,13 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
    left right)
   #:transparent)
 
-(define (make-leaf-node data split-feature-index split-value split-procedure)
-  (Node data split-feature-index split-value split-procedure empty empty))
+(define (make-leaf-node data)
+  (Node data
+        'none
+        'none
+        'none
+        empty
+        empty))
 
 (define (leaf-node? node)
   (and (empty? (Node-left node))
@@ -222,16 +230,16 @@ PREDICTING:
     |#
     (cond [(max-depth-reached? current-depth)
            (displayln "STOPPING CONDITION: maximum depth")
-           (make-leaf-node subset 'none 'none 'none)]
+           (make-leaf-node subset)]
           [(insufficient-data-points-for-split? subset)
            (displayln "STOPPING CONDITION: insuficient number of data points")
-           (make-leaf-node subset 'none 'none 'none)]
+           (make-leaf-node subset)]
           [(insufficient-data-points-ratio-for-split? subset)
            (displayln "STOPPING CONDITION: insuficient ratio of data points")
-           (make-leaf-node subset 'none 'none 'none)]
+           (make-leaf-node subset)]
           [(all-same-label? subset)
            (displayln "STOPPING CONDITION: all same label")
-           (make-leaf-node subset 'none 'none 'none)]
+           (make-leaf-node subset)]
           [else
            ;;(display "input data for searching best split:") (displayln subset)
            (let* ([best-split (get-best-split subset
