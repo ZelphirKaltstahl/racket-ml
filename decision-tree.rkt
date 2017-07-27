@@ -39,20 +39,34 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
   (index value subsets cost)
   #:transparent)
 
-(struct Node
+#;(struct Node
   (data left right)
   #:transparent)
+(struct Node
+  (data
+   split-feature-index
+   split-value
+   split-procedure
+   left right)
+  #:transparent)
 
-(define (make-leaf-node data)
-  (Node data empty empty))
+(define (make-leaf-node data split-feature-index split-value split-procedure)
+  (Node data split-feature-index split-value split-procedure empty empty))
 
 (define (leaf-node? node)
   (and (empty? (Node-left node))
        (empty? (Node-right node))))
 ;; =========================================================
 
-(define (labels-elements-equal? lst)
-  (apply = lst))
+(define (labels-elements-equal? subset)
+  (with-handlers ([exn:fail:contract:arity?
+                   (lambda (exception)
+                     (< (data-length subset) 2))])
+    (apply = subset)))
+;; TODO:
+;; call with an exception handler,
+;; if the exception occurs (arity mismatch),
+;; then return boolen: data-length < 2
 
 (define (class-equals? class-1 class-2)
   (= class-1 class-2))
@@ -168,14 +182,14 @@ PREDICTING:
       (cond [(>= (length part1) (length part2)) 0]
             [else 1])))
 
-(define (split data
-               all-data-length
-               current-depth
-               feature-column-indices
-               label-column-index
-               #:max-depth [max-depth 6]
-               #:min-data-points [min-data-points 12]
-               #:min-data-points-ratio [min-data-points-ratio 0.02])
+(define (fit data
+             feature-column-indices
+             label-column-index
+             #:max-depth [max-depth 6]
+             #:min-data-points [min-data-points 12]
+             #:min-data-points-ratio [min-data-points-ratio 0.02])
+  (define all-data-length (data-length data))
+  (define current-depth 1)
 
   #|
   STOP CRITERIA:
@@ -188,7 +202,9 @@ PREDICTING:
     (labels-elements-equal? (data-get-col subset label-column-index)))
 
   (define (insufficient-data-points-for-split? subset)
-    (<= (data-length subset) min-data-points))
+    (let ([number-of-data-points (data-length subset)])
+      (or (<= number-of-data-points min-data-points)
+          (< number-of-data-points 2))))
 
   (define (max-depth-reached? current-depth)
     (>= current-depth max-depth))
@@ -200,16 +216,24 @@ PREDICTING:
   Here we do the recursive splitting.
   |#
   (define (recursive-split subset current-depth)
-    (cond [(or (all-same-label? subset)
-               (max-depth-reached? current-depth)
-               (insufficient-data-points-for-split? subset)
-               (insufficient-data-points-ratio-for-split? subset))
-           (displayln "stopping condition met!")
-           (displayln "making leaf node with data:")
-           (displayln subset)
-           (make-leaf-node subset)]
+    (display "recursive split on depth: ") (displayln current-depth)
+    #|
+    Before splitting further, we check for stopping early conditions.
+    |#
+    (cond [(max-depth-reached? current-depth)
+           (displayln "STOPPING CONDITION: maximum depth")
+           (make-leaf-node subset 'none 'none 'none)]
+          [(insufficient-data-points-for-split? subset)
+           (displayln "STOPPING CONDITION: insuficient number of data points")
+           (make-leaf-node subset 'none 'none 'none)]
+          [(insufficient-data-points-ratio-for-split? subset)
+           (displayln "STOPPING CONDITION: insuficient ratio of data points")
+           (make-leaf-node subset 'none 'none 'none)]
+          [(all-same-label? subset)
+           (displayln "STOPPING CONDITION: all same label")
+           (make-leaf-node subset 'none 'none 'none)]
           [else
-           (display "input data for searching best split:") (displayln subset)
+           ;;(display "input data for searching best split:") (displayln subset)
            (let* ([best-split (get-best-split subset
                                               gini-index
                                               feature-column-indices
@@ -220,9 +244,13 @@ PREDICTING:
              and we only have as many procedure calls as there are branches in the tree,
              it is OK to not be tail recursive here.
              |#
-             (display "got best split subsets:")
-             (displayln (Split-subsets best-split))
+             ;; (display "got best split subsets:")
+             ;; (displayln (Split-subsets best-split))
              (Node subset
+                   (Split-index best-split)
+                   (Split-value best-split)
+                   (lambda (feature-value)
+                     (if (< feature-value (Split-value best-split)) 'left 'right))
                    (recursive-split (first (Split-subsets best-split))
                                     (add1 current-depth))
                    (recursive-split (second (Split-subsets best-split))
@@ -231,22 +259,30 @@ PREDICTING:
 
 ;; =========================================================
 
-(define TEST-DATA (list #(2.771244718 1.784783929 0)
-                        #(1.728571309 1.169761413 0)
-                        #(3.678319846 2.81281357 0)
-                        #(3.961043357 2.61995032 0)
-                        #(2.999208922 2.209014212 0)
-                        #(7.497545867 3.162953546 1)
-                        #(9.00220326 3.339047188 1)
-                        #(7.444542326 0.476683375 1)
-                        #(10.12493903 3.234550982 1)
-                        #(6.642287351 3.319983761 1)))
+
 
 (time
- (let ([a (get-best-split data-set gini-index (list 0 1 2 3) 4)])
+ (let ([a (fit data-set (list 0 1 2 3) 4)])
    (displayln "finished")))
 
-#;(time (get-best-split TEST-DATA gini-index (list 0 1) 2))
+(let ([TEST-DATA (list #(2.771244718 1.784783929 0)
+                       #(1.728571309 1.169761413 0)
+                       #(3.678319846 2.81281357 0)
+                       #(3.961043357 2.61995032 0)
+                       #(2.999208922 2.209014212 0)
+                       #(7.497545867 3.162953546 1)
+                       #(9.00220326 3.339047188 1)
+                       #(7.444542326 0.476683375 1)
+                       #(10.12493903 3.234550982 1)
+                       #(6.642287351 3.319983761 1))])
+  (time
+   (let ([a (fit TEST-DATA
+                 (list 0 1)
+                 2
+                 #:min-data-points 2
+                 #:min-data-points-ratio 0.01
+                 #:max-depth 3)])
+     (displayln "finished"))))
 
 #|
 Improvements to do:
