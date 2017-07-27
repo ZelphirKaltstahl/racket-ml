@@ -305,12 +305,8 @@
                          #(2.4 1.0 1))]
         [feature-columns-indices (list 0 1)]
         [label-column-index 2])
-    (check-equal? (fit test-data
-                       (list 0 1)
-                       2
-                       #:max-depth 2
-                       #:min-data-points 4
-                       #:min-data-points-ratio 0.02)
+    (check-equal? (fit test-data (list 0 1) 2
+                       #:max-depth 2 #:min-data-points 4 #:min-data-points-ratio 0.02)
                   (let ([best-split (get-best-split test-data gini-index (list 0 1) 2)])
                     (Node test-data
                           (Split-index best-split)
@@ -346,7 +342,8 @@
                           #(2.0 1.0 1)
                           #(2.4 1.0 1))]
          [best-split (get-best-split test-data gini-index (list 0 1) 2)])
-    (check-equal? (fit test-data (length test-data) 1 (list 0 1) 2 #:max-depth 3 #:min-data-points 2 #:min-data-points-ratio 0.02)
+    (check-equal? (fit test-data (list 0 1) 2
+                       #:max-depth 3 #:min-data-points 2 #:min-data-points-ratio 0.02)
                   (Node test-data
                         (Split-index best-split)
                         (Split-value best-split)
@@ -378,32 +375,29 @@
                                 (make-leaf-node (list #(2.3 1.1 0)
                                                       #(2.0 1.1 0))))))
                   "split is not correct"))
-  #;(let ([test-data (list #(2.3 1.1 0)
-                           #(2.0 1.1 0)
-                           #(2.3 1.0 1)
-                           #(2.0 1.0 1)
-                           #(2.3 1.0 1)
-                           #(2.0 1.0 1)
-                           #(2.4 1.0 1))])
-      (check-equal? (fit test-data
-                         (length test-data)
-                         1
-                         (list 0 1)
-                         2
-                         #:max-depth 3
-                         #:min-data-points 2
-                         #:min-data-points-ratio 0.02)
-                    (Node test-data
-                          (Node (list #(2.3 1.0 1)
-                                      #(2.0 1.0 1)
-                                      #(2.3 1.0 1)
-                                      #(2.0 1.0 1)
-                                      #(2.4 1.0 1))
-                                empty empty)
-                          (Node (list #(2.3 1.1 0)
-                                      #(2.0 1.1 0))
-                                empty empty))
-                    "split is not correct")))
+  (let* ([test-data (list #(2.3 1.1 0)
+                          #(2.0 1.1 0)
+                          #(2.3 1.0 1)
+                          #(2.0 1.0 1)
+                          #(2.3 1.0 1)
+                          #(2.0 1.0 1)
+                          #(2.4 1.0 1))]
+         [best-split (get-best-split test-data gini-index (list 0 1) 2)])
+    (check-equal? (fit test-data (list 0 1) 2
+                       #:max-depth 3 #:min-data-points 2 #:min-data-points-ratio 0.02)
+                  (Node test-data
+                        (Split-index best-split)
+                        (Split-value best-split)
+                        (lambda (feature-value)
+                          (if (< feature-value (Split-value best-split)) 'left 'right))
+                        (make-leaf-node (list #(2.3 1.0 1)
+                                              #(2.0 1.0 1)
+                                              #(2.3 1.0 1)
+                                              #(2.0 1.0 1)
+                                              #(2.4 1.0 1)))
+                        (make-leaf-node (list #(2.3 1.1 0)
+                                              #(2.0 1.1 0))))
+                  "split is not correct")))
 
 (test-case "labels-elements-equal? test case"
   (check-true (labels-elements-equal? empty)
