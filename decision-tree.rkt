@@ -111,8 +111,8 @@ There are other ways of calculating the quality of a split, but for now we
 implement gini index.
 |#
 (define (gini-index subsets label-column-index)
-  (for/sum ([subset subsets])
-    (for/sum ([label (list 0 1)])
+  (for/sum ([subset (in-list subsets)])
+    (for/sum ([label (in-list (list 0 1))])
       (calc-proportion subset
                        label
                        label-column-index))))
