@@ -60,9 +60,6 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
    cost)
   #:transparent)
 
-#;(struct Node
-  (data left right)
-  #:transparent)
 (struct Node
   (data
    split-feature-index
