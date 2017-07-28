@@ -8,6 +8,14 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
 (require "csv-to-list.rkt")
 (provide (all-defined-out))
 
+(define FILE-PATH "data_banknote_authentication.csv")
+(define COLUMN-CONVERTERS (list string->number
+                                string->number
+                                string->number
+                                string->number
+                                (lambda (a-class) (inexact->exact (string->number a-class)))))
+(define data-set (all-rows FILE-PATH #:column-converters COLUMN-CONVERTERS))
+
 ;; =========================================================
 ;; ABSTRACTION LAYER
 ;; (for data representation)
@@ -15,9 +23,9 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
 (define (data-empty? data)
   (empty? data))
 (define (data-first data)
-  (first data))
+  (car data))
 (define (data-rest data)
-  (rest data))
+  (cdr data))
 (define (data-length data)
   (length data))
 (define (data-point-length data-point)
@@ -75,14 +83,6 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
 (define (class-equals? class-1 class-2)
   (= class-1 class-2))
 
-(define FILE-PATH "data_banknote_authentication.csv")
-(define COLUMN-CONVERTERS (list string->number
-                                string->number
-                                string->number
-                                string->number
-                                (lambda (a-class) (inexact->exact (string->number a-class)))))
-(define data-set (all-rows FILE-PATH #:column-converters COLUMN-CONVERTERS))
-
 ;; =========================================================
 ;; DECISION TREE ALGORITHM
 ;; (its procedures)
@@ -90,12 +90,11 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
 (define (calc-proportion subset class-label label-column-index)
   (cond [(data-empty? subset) 0]
         [else (let* ([row-count (data-length subset)]
-                     [class-count
-                      (data-length
-                       (data-filter (lambda (row)
-                                      (class-equals? class-label
-                                                     (data-point-get-col row label-column-index)))
-                                    subset))]
+                     [class-count (count
+                                   (lambda (row)
+                                     (class-equals? class-label
+                                                    (data-point-get-col row label-column-index)))
+                                   subset)]
                      [prop (/ class-count row-count)])
                 (* prop (- 1.0 prop)))]))
 
@@ -107,6 +106,10 @@ There are other ways of calculating the quality of a split, but for now we
 implement gini index.
 |#
 (define (gini-index subsets label-column-index)
+  #;(time
+     (for/sum ([a as]
+               [b bs])
+       (* a b)))
   (apply +
          (map (lambda (subset)
                 (apply +
@@ -162,8 +165,8 @@ implement gini index.
     (display "remaining feature column indices: ")
     (displayln remaining-feature-column-indices)
       (cond [(empty? remaining-feature-column-indices) current-result]
-            [else (iter-features (rest remaining-feature-column-indices)
-                                 (iter-values (first remaining-feature-column-indices)
+            [else (iter-features (cdr remaining-feature-column-indices)
+                                 (iter-values (car remaining-feature-column-indices)
                                               data
                                               current-result))]))
   ;; starting the whole thing
@@ -255,21 +258,46 @@ PREDICTING:
                    (Split-value best-split)
                    (lambda (feature-value)
                      (if (< feature-value (Split-value best-split)) 'left 'right))
-                   (recursive-split (first (Split-subsets best-split))
+                   (recursive-split (car (Split-subsets best-split))
                                     (add1 current-depth))
-                   (recursive-split (second (Split-subsets best-split))
+                   (recursive-split (cadr (Split-subsets best-split))
                                     (add1 current-depth))))]))
   (recursive-split data 1))
 
 ;; =========================================================
 
+(define (list-range lst start end)
+  (take (drop lst start) (- end start)))
 
+(define (data-range data start end)
+  (list-range data start end))
+
+(define small-data-set
+  (data-range (shuffle data-set)
+              0
+              (exact-floor (/ (data-length data-set) 5))))
+
+(displayln (string-append "working with "
+                          (number->string (data-length data-set))
+                          " data points"))
 (collect-garbage)
 (collect-garbage)
 (collect-garbage)
 (time
  (let ([a (fit data-set (list 0 1 2 3) 4)])
    (displayln "finished")))
+
+#|
+(displayln (string-append "working with "
+                          (number->string (data-length small-data-set))
+                          " data points"))
+(collect-garbage)
+(collect-garbage)
+(collect-garbage)
+(time
+ (let ([a (fit small-data-set (list 0 1 2 3) 4)])
+   (displayln "finished")))
+|#
 
 #;(let ([TEST-DATA (list #(2.771244718 1.784783929 0)
                        #(1.728571309 1.169761413 0)
@@ -301,8 +329,7 @@ Improvements to do:
 
 - use car/cdr instead of first/rest??
 
-- Do I have function with optional arguments, which are not necessarily needed?
-  https://groups.google.com/d/msg/racket-users/cPuTr8lrXCs/zdyoogt7AQAJ
+- use match-define ??? (where?)
 
 - Check if these methods of summing are more readable (and faster) than the nested map thingy:
   https://groups.google.com/d/msg/racket-users/cPuTr8lrXCs/7DiM68psAQAJ
