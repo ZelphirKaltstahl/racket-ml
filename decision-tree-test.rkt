@@ -248,7 +248,6 @@
                                                   #(9.0 0.0 1))
                                             'none
                                             'none
-                                            'none
                                             empty
                                             empty)
                                       2)
@@ -259,7 +258,6 @@
                                                   #(5.0 6.0 0)
                                                   #(7.0 8.0 1)
                                                   #(9.0 0.0 1))
-                                            'none
                                             'none
                                             'none
                                             empty
@@ -273,7 +271,6 @@
                                       #(7.0 8.0 1))
                                 'none
                                 'none
-                                'none
                                 empty
                                 empty))
               "leaf-node? is not correct")
@@ -283,8 +280,6 @@
                  (leaf-node? (Node subset
                                    (Split-index best-split)
                                    (Split-value best-split)
-                                   (lambda (feature-value)
-                                     (if (< feature-value (Split-value best-split)) 'left 'right))
                                    (make-leaf-node (list #(5.0 6.0 0)))
                                    (make-leaf-node (list #(7.0 8.0 1))))))
                "leaf-node? is not correct"))
@@ -311,22 +306,19 @@
                     (Node test-data
                           (Split-index best-split)
                           (Split-value best-split)
-                          (lambda (feature-value)
-                            (if (< feature-value (Split-value best-split)) 'left 'right))
-
-                            (make-leaf-node (list #(1.0 1.0 0)
-                                                  #(1.2 1.0 0)
-                                                  #(1.1 1.0 0)
-                                                  #(1.4 1.0 0)
-                                                  #(1.2 1.0 0)
-                                                  #(1.2 1.0 0)))
-                            (make-leaf-node (list #(2.3 1.0 1)
-                                                  #(2.0 1.0 1)
-                                                  #(2.3 1.0 1)
-                                                  #(2.0 1.0 1)
-                                                  #(2.3 1.0 1)
-                                                  #(2.0 1.0 1)
-                                                  #(2.4 1.0 1)))))
+                          (make-leaf-node (list #(1.0 1.0 0)
+                                                #(1.2 1.0 0)
+                                                #(1.1 1.0 0)
+                                                #(1.4 1.0 0)
+                                                #(1.2 1.0 0)
+                                                #(1.2 1.0 0)))
+                          (make-leaf-node (list #(2.3 1.0 1)
+                                                #(2.0 1.0 1)
+                                                #(2.3 1.0 1)
+                                                #(2.0 1.0 1)
+                                                #(2.3 1.0 1)
+                                                #(2.0 1.0 1)
+                                                #(2.4 1.0 1)))))
                   "split is not correct"))
   (let* ([test-data (list #(1.0 1.0 0)
                           #(1.2 1.0 0)
@@ -347,8 +339,6 @@
                   (Node test-data
                         (Split-index best-split)
                         (Split-value best-split)
-                        (lambda (feature-value)
-                          (if (< feature-value (Split-value best-split)) 'left 'right))
                         (make-leaf-node (list #(1.0 1.0 0)
                                               #(1.2 1.0 0)
                                               #(1.1 1.0 0)
@@ -366,7 +356,6 @@
                           (Node subset
                                 (Split-index best-split)
                                 (Split-value best-split)
-                                gini-index
                                 (make-leaf-node (list #(2.3 1.0 1)
                                                       #(2.0 1.0 1)
                                                       #(2.3 1.0 1)
@@ -388,8 +377,6 @@
                   (Node test-data
                         (Split-index best-split)
                         (Split-value best-split)
-                        (lambda (feature-value)
-                          (if (< feature-value (Split-value best-split)) 'left 'right))
                         (make-leaf-node (list #(2.3 1.0 1)
                                               #(2.0 1.0 1)
                                               #(2.3 1.0 1)

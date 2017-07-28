@@ -16,6 +16,14 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
                                 (lambda (a-class) (inexact->exact (string->number a-class)))))
 (define data-set (all-rows FILE-PATH #:column-converters COLUMN-CONVERTERS))
 
+
+;; =========================================================
+;; HELPER PROCEDURES
+;; =========================================================
+(define (list-range lst start end)
+  (take (drop lst start) (- end start)))
+;; =========================================================
+
 ;; =========================================================
 ;; ABSTRACTION LAYER
 ;; (for data representation)
@@ -26,6 +34,8 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
   (car data))
 (define (data-rest data)
   (cdr data))
+(define (data-range data start end)
+  (list-range data start end))
 (define (data-length data)
   (length data))
 (define (data-point-length data-point)
@@ -57,13 +67,11 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
   (data
    split-feature-index
    split-value
-   split-procedure
    left right)
   #:transparent)
 
 (define (make-leaf-node data)
   (Node data
-        'none
         'none
         'none
         empty
@@ -250,8 +258,6 @@ PREDICTING:
              (Node subset
                    (Split-index best-split)
                    (Split-value best-split)
-                   (lambda (feature-value)
-                     (if (< feature-value (Split-value best-split)) 'left 'right))
                    (recursive-split (car (Split-subsets best-split))
                                     (add1 current-depth))
                    (recursive-split (cadr (Split-subsets best-split))
@@ -260,11 +266,7 @@ PREDICTING:
 
 ;; =========================================================
 
-(define (list-range lst start end)
-  (take (drop lst start) (- end start)))
 
-(define (data-range data start end)
-  (list-range data start end))
 
 (define small-data-set
   (data-range (shuffle data-set)
