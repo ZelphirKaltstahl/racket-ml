@@ -12,11 +12,11 @@ With permission it was added to the project.
 |#
 
 (define (string->data s [sep " "])
-  (for/list ([line (string-split s "\n")])
+  (for/list ([line (in-list (string-split s #rx"\r?\n"))])
     (map string->number (string-split line sep))))
 
 (define banknote-data
-  (string->data (file->string "data_banknote_authentication.txt") ","))
+  (string->data (file->string "data_banknote_authentication.csv") ","))
 
 (define test-data
   (string->data
@@ -34,19 +34,19 @@ With permission it was added to the project.
 (define (make-split rows index value)
   (define-values (left right)
     (for/fold ([left null] [right null])
-              ([row rows])
+              ([row (in-list rows)])
       (if (< (list-ref row index) value)
           (values (cons row left) right)
           (values left (cons row right)))))
   (list left right))
 
 (define (gini-coefficient splits)
-  (for/sum ([split splits])
+  (for/sum ([split (in-list splits)])
     (define n (* 1.0 (length split)))
     (define (g v) (* (/ v n) (- 1.0 (/ v n))))
     (if (zero? n)
         0
-        (let ([m (for/sum ([row split] #:when (zero? (last row)))
+        (let ([m (for/sum ([row (in-list split)] #:when (zero? (last row)))
                    1)])
           (+ (g m) (g (- n m)))))))
 
@@ -54,7 +54,7 @@ With permission it was added to the project.
   (define-values (best index value _)
     (for*/fold ([best null] [i -1] [v -1] [score 999])
                ([index (in-range (sub1 (length (first rows))))]
-                [row rows])
+                [row (in-list rows)])
       (let* ([value (list-ref row index)]
              [s (make-split rows index value)]
              [gini (gini-coefficient s)])
@@ -99,7 +99,7 @@ With permission it was added to the project.
      1.0))
 
 ;(define test-model (build-tree test-data 1 1))
-;(for/list ([row test-data])
+;(for/list ([row (in-list test-data)])
 ;  (list row (predict test-model row)))
 
 (define data (shuffle banknote-data))
@@ -108,3 +108,12 @@ With permission it was added to the project.
 model
 
 (check-model model (drop data 274))
+
+(random-seed 12345)
+(define data2 (shuffle banknote-data))
+(time
+ (void
+  (build-tree (take data2 274) 5 10)))
+(time
+ (for ([i (in-range 20)])
+   (build-tree (take data2 274) 5 10)))
