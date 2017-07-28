@@ -106,17 +106,11 @@ There are other ways of calculating the quality of a split, but for now we
 implement gini index.
 |#
 (define (gini-index subsets label-column-index)
-  #;(time
-     (for/sum ([a as]
-               [b bs])
-       (* a b)))
-  (apply +
-         (map (lambda (subset)
-                (apply +
-                        (map (lambda (class-label)
-                               (calc-proportion subset class-label label-column-index))
-                             (list 0 1))))
-              subsets)))
+  (for/sum ([subset subsets])
+    (for/sum ([label (list 0 1)])
+      (calc-proportion subset
+                       label
+                       label-column-index))))
 
 (define (split-data data index value)
   (let-values ([(part1 part2)
@@ -323,16 +317,7 @@ PREDICTING:
 
 #|
 Improvements to do:
-- Incorporate the following: https://groups.google.com/d/msg/racket-users/cPuTr8lrXCs/y85YQmx3AQAJ
-
-- https://groups.google.com/d/msg/racket-users/cPuTr8lrXCs/me19Wpx5AQAJ
-
-- use car/cdr instead of first/rest??
-
 - use match-define ??? (where?)
-
-- Check if these methods of summing are more readable (and faster) than the nested map thingy:
-  https://groups.google.com/d/msg/racket-users/cPuTr8lrXCs/7DiM68psAQAJ
 
 - Check if I can use:
   https://groups.google.com/d/msg/racket-users/cPuTr8lrXCs/8s2ZzEZ7AQAJ
