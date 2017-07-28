@@ -317,11 +317,6 @@ PREDICTING:
 
 #|
 Improvements to do:
-- use match-define ??? (where?)
-
-- Check if I can use:
-  https://groups.google.com/d/msg/racket-users/cPuTr8lrXCs/8s2ZzEZ7AQAJ
-
 - Memoization:
   If I'm reading this right, for a given data set, you should be able
   to memoize calls to `data-get-col`.
