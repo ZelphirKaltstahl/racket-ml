@@ -264,12 +264,14 @@ PREDICTING:
 ;; =========================================================
 
 
-
+(collect-garbage)
+(collect-garbage)
+(collect-garbage)
 (time
  (let ([a (fit data-set (list 0 1 2 3) 4)])
    (displayln "finished")))
 
-(let ([TEST-DATA (list #(2.771244718 1.784783929 0)
+#;(let ([TEST-DATA (list #(2.771244718 1.784783929 0)
                        #(1.728571309 1.169761413 0)
                        #(3.678319846 2.81281357 0)
                        #(3.961043357 2.61995032 0)
@@ -279,6 +281,9 @@ PREDICTING:
                        #(7.444542326 0.476683375 1)
                        #(10.12493903 3.234550982 1)
                        #(6.642287351 3.319983761 1))])
+  (collect-garbage)
+  (collect-garbage)
+  (collect-garbage)
   (time
    (let ([a (fit TEST-DATA
                  (list 0 1)
@@ -290,6 +295,21 @@ PREDICTING:
 
 #|
 Improvements to do:
+- Incorporate the following: https://groups.google.com/d/msg/racket-users/cPuTr8lrXCs/y85YQmx3AQAJ
+
+- https://groups.google.com/d/msg/racket-users/cPuTr8lrXCs/me19Wpx5AQAJ
+
+- use car/cdr instead of first/rest??
+
+- Do I have function with optional arguments, which are not necessarily needed?
+  https://groups.google.com/d/msg/racket-users/cPuTr8lrXCs/zdyoogt7AQAJ
+
+- Check if these methods of summing are more readable (and faster) than the nested map thingy:
+  https://groups.google.com/d/msg/racket-users/cPuTr8lrXCs/7DiM68psAQAJ
+
+- Check if I can use:
+  https://groups.google.com/d/msg/racket-users/cPuTr8lrXCs/8s2ZzEZ7AQAJ
+
 - Memoization:
   If I'm reading this right, for a given data set, you should be able
   to memoize calls to `data-get-col`.
