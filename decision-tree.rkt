@@ -16,7 +16,6 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
                                 (lambda (a-class) (inexact->exact (string->number a-class)))))
 (define data-set (all-rows FILE-PATH #:column-converters COLUMN-CONVERTERS))
 
-
 ;; =========================================================
 ;; HELPER PROCEDURES
 ;; =========================================================
@@ -305,6 +304,16 @@ PREDICTING:
                                                 (Split-cost best-split)))]))]))
   (recursive-split data 1 1.0))
 
+(define (predict tree data-point label-column-index)
+  #;(displayln tree)
+  (cond [(leaf-node? tree)
+         (node-majority-prediction tree label-column-index)]
+        [else
+         (cond [(< (data-point-get-col data-point (Node-split-feature-index tree))
+                   (Node-split-value tree))
+                (predict (Node-left tree) data-point label-column-index)]
+               [else (predict (Node-right tree) data-point label-column-index)])]))
+
 (define (print-tree tree label-column-index)
   (define (tree->string tree depth)
     (cond [(leaf-node? tree)
@@ -327,20 +336,22 @@ PREDICTING:
 
 ;; =========================================================
 
-
+(define shuffled-data (shuffle data-set))
 
 (define small-data-set
-  (data-range (shuffle data-set)
-              0
-              (exact-floor (/ (data-length data-set) 5))))
+  (data-range shuffled-data 0 (exact-floor (/ (data-length data-set) 5))))
 
 (displayln (string-append "working with "
-                          (number->string (data-length data-set))
+                          (number->string (data-length small-data-set))
                           " data points"))
 (collect-garbage)
 (collect-garbage)
 (collect-garbage)
 (time
+ (for ([i (in-range 1)])
+   (print-tree (fit data-set (list 0 1 2 3) 4) 4)))
+
+#;(time
  (let ([a (fit data-set (list 0 1 2 3) 4)])
    (displayln "finished")
    (print-tree a 4)))

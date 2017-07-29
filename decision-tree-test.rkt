@@ -494,6 +494,44 @@
                                    #(2.4 1.0 0))
                              (list #(2.3 1.1 1)
                                    #(2.0 1.1 1)))))
-;; TODO: create a make-Node procedure to unify making them
-;; TODO: adapt the rest to new data structure
-;; TODO: compare procedures properly
+
+(test-case "predict test case"
+  (let ([tree (Node (list #(1.0 1.0 0)
+                          #(1.2 1.0 0)
+                          #(1.1 1.0 0)
+                          #(1.4 1.0 0)
+                          #(1.2 1.0 0)
+                          #(1.2 1.0 0) ;;
+                          #(2.3 1.1 0)
+                          #(2.0 1.1 0)
+                          #(2.3 1.0 1)
+                          #(2.0 1.0 1)
+                          #(2.3 1.0 1)
+                          #(2.0 1.0 1)
+                          #(2.4 1.0 1))
+                    0  ;; split index
+                    2.0  ;; split value
+                    (make-leaf-node (list #(1.0 1.0 0)
+                                          #(1.2 1.0 0)
+                                          #(1.1 1.0 0)
+                                          #(1.4 1.0 0)
+                                          #(1.2 1.0 0)
+                                          #(1.2 1.0 0)))
+                    (Node (list #(2.3 1.1 0)
+                                #(2.0 1.1 0)
+                                #(2.3 1.0 1)
+                                #(2.0 1.0 1)
+                                #(2.3 1.0 1)
+                                #(2.0 1.0 1)
+                                #(2.4 1.0 1))
+                          1
+                          1.1
+                          (make-leaf-node (list #(2.3 1.0 1)
+                                                #(2.0 1.0 1)
+                                                #(2.3 1.0 1)
+                                                #(2.0 1.0 1)
+                                                #(2.4 1.0 1)))
+                          (make-leaf-node (list #(2.3 1.1 0)
+                                                #(2.0 1.1 0)))))])
+    (check-equal? (predict tree #(2.3 1.1 0) 2)
+                  0)))
