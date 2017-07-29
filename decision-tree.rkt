@@ -378,7 +378,5 @@ PREDICTING:
 
 #|
 IMPROVEMENTS:
-
-- add scikit-learn's min_impurity_split kwrarg
 - remove data from not leaf nodes by using struct setters
 |#
