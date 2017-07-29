@@ -3,6 +3,7 @@
 
 (require rackunit)
 (require "decision-tree.rkt")
+(require "test-utils.rkt")
 
 (define TEST-DATA (list #(2.771244718 1.784783929 0)
                         #(1.728571309 1.169761413 0)
@@ -15,15 +16,6 @@
                         #(10.12493903 3.234550982 1)
                         #(6.642287351 3.319983761 1)))
 (define PRECISION (expt 10 -9))
-
-;; =======
-;; HELPERS
-;; =======
-(define-syntax check-values-equal?
-  (syntax-rules ()
-    [(_ a b) (check-equal? (call-with-values (thunk a) list)
-                           b)]))
-
 
 (test-case "data-empty? test case"
   (check-true (data-empty? empty)
@@ -81,37 +73,6 @@
                                (< (data-point-get-col data-point 0) 2))
                              TEST-DATA)
                 (list #(1.728571309 1.169761413 0))))
-
-
-(define (lists-approximately-equal? l1 l2 epsilon)
-  (define (approximately-equal? value1 value2 epsilon)
-    (<= (abs (- (abs value1)
-                (abs value2)))
-        epsilon))
-
-  (define (check-elements l1 l2 epsilon)
-    (cond [(and (empty? l1) (empty? l2)) true]
-          [(approximately-equal? (vector-ref (first l1) 0)
-                                 (vector-ref (first l2) 0)
-                                 epsilon)
-           (check-elements (rest l1)
-                           (rest l2)
-                           epsilon)]
-          [else false]))
-
-  (if (= (length l1) (length l2))
-      (check-elements l1 l2 epsilon)
-      false))
-
-;; updates a vector in a functional way,
-;; returning a new vector which is the same as the given vector,
-;; but has at position pos the value value.
-(define (vector-set a-vector pos value)
-  (vector->immutable-vector
-   (for/vector ([index (in-range (vector-length a-vector))])
-     (if (= pos index)
-         value
-         (vector-ref a-vector index)))))
 
 (test-case "data-map test case"
   (check-equal?
@@ -501,9 +462,9 @@
                           #(1.1 1.0 0)
                           #(1.4 1.0 0)
                           #(1.2 1.0 0)
-                          #(1.2 1.0 0) ;;
+                          #(1.2 1.0 0) ;
                           #(2.3 1.1 0)
-                          #(2.0 1.1 0)
+                          #(2.0 1.1 0) ;;
                           #(2.3 1.0 1)
                           #(2.0 1.0 1)
                           #(2.3 1.0 1)
@@ -533,5 +494,5 @@
                                                 #(2.4 1.0 1)))
                           (make-leaf-node (list #(2.3 1.1 0)
                                                 #(2.0 1.1 0)))))])
-    (check-equal? (predict tree #(2.3 1.1 0) 2)
-                  0)))
+    (check-equal? (predict tree #(2.3 1.1 0) 2) 0)
+    (check-equal? (predict tree #(2.3 1.0 0) 2) 1)))

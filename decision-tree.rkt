@@ -6,6 +6,7 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
 |#
 
 (require "csv-to-list.rkt")
+(require "utils.rkt")
 (provide (all-defined-out))
 
 (define FILE-PATH "data_banknote_authentication.csv")
@@ -15,20 +16,6 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
                                 string->number
                                 (lambda (a-class) (inexact->exact (string->number a-class)))))
 (define data-set (all-rows FILE-PATH #:column-converters COLUMN-CONVERTERS))
-
-;; =========================================================
-;; HELPER PROCEDURES
-;; =========================================================
-(define (list-range lst start end)
-  (take (drop lst start) (- end start)))
-(define (n-times-string a-string n)
-  (cond
-    [(< n 1) ""]
-    [(= n 1) a-string]
-    [else
-     (string-append a-string
-                    (n-times-string a-string (sub1 n)))]))
-;; =========================================================
 
 ;; =========================================================
 ;; ABSTRACTION LAYER
