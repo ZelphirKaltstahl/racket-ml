@@ -16,6 +16,15 @@
                         #(6.642287351 3.319983761 1)))
 (define PRECISION (expt 10 -9))
 
+;; =======
+;; HELPERS
+;; =======
+(define-syntax check-values-equal?
+  (syntax-rules ()
+    [(_ a b) (check-equal? (call-with-values (thunk a) list)
+                           b)]))
+
+
 (test-case "data-empty? test case"
   (check-true (data-empty? empty)
               "data-empty? is not correct")
@@ -241,38 +250,26 @@
                   "get-best-split does not give the best split")))
 
 (test-case "predict-at-leaf-node test case"
-  (check-equal? (predict-at-leaf-node (Node (list #(1.0 2.0 0)
-                                                  #(3.0 4.0 0)
-                                                  #(5.0 6.0 1)
-                                                  #(7.0 8.0 1)
-                                                  #(9.0 0.0 1))
-                                            'none
-                                            'none
-                                            empty
-                                            empty)
+  (check-equal? (predict-at-leaf-node (make-leaf-node (list #(1.0 2.0 0)
+                                                            #(3.0 4.0 0)
+                                                            #(5.0 6.0 1)
+                                                            #(7.0 8.0 1)
+                                                            #(9.0 0.0 1)))
                                       2)
                 1
                 "predict-at-leaf-node does not give the correct label")
-  (check-equal? (predict-at-leaf-node (Node (list #(1.0 2.0 0)
-                                                  #(3.0 4.0 0)
-                                                  #(5.0 6.0 0)
-                                                  #(7.0 8.0 1)
-                                                  #(9.0 0.0 1))
-                                            'none
-                                            'none
-                                            empty
-                                            empty)
+  (check-equal? (predict-at-leaf-node (make-leaf-node (list #(1.0 2.0 0)
+                                                            #(3.0 4.0 0)
+                                                            #(5.0 6.0 0)
+                                                            #(7.0 8.0 1)
+                                                            #(9.0 0.0 1)))
                                       2)
                 0
                 "predict-at-leaf-node does not give the correct label"))
 
 (test-case "leaf-node? test case"
-  (check-true (leaf-node? (Node (list #(5.0 6.0 0)
-                                      #(7.0 8.0 1))
-                                'none
-                                'none
-                                empty
-                                empty))
+  (check-true (leaf-node? (make-leaf-node (list #(5.0 6.0 0)
+                                                #(7.0 8.0 1))))
               "leaf-node? is not correct")
   (check-false (let* ([subset (list #(5.0 6.0 0)
                                     #(7.0 8.0 1))]
@@ -402,6 +399,101 @@
   (check-false (labels-elements-equal? (list 1 2 3))
                "labels-elements-equal? is not correct"))
 
+(test-case "data-majority-prediction test case"
+  (check-equal? (data-majority-prediction (list #(2.3 1.1 0)
+                                                #(2.0 1.1 0)
+                                                #(2.3 1.0 1)
+                                                #(2.0 1.0 1)
+                                                #(2.3 1.0 1)
+                                                #(2.0 1.0 1)
+                                                #(2.4 1.0 1))
+                                          2)
+                1)
+  (check-equal? (data-majority-prediction (list #(2.3 1.1 0)
+                                                #(2.0 1.1 0)
+                                                #(2.3 1.0 0)
+                                                #(2.0 1.0 0)
+                                                #(2.3 1.0 1)
+                                                #(2.0 1.0 1)
+                                                #(2.4 1.0 1))
+                                          2)
+                0)
+  (check-equal? (data-majority-prediction (list #(2.3 1.1 0)
+                                                #(2.0 1.1 0)
+                                                #(2.3 1.0 0)
+                                                #(2.0 1.0 0)
+                                                #(2.3 1.0 1)
+                                                #(2.0 1.0 1)
+                                                #(2.4 1.0 1)
+                                                #(2.4 1.0 1))
+                                          2)
+                0))
+
+
+#;(struct Node
+    (data
+     predicted-label
+     split-feature-index
+     split-value
+     left right)
+    #:transparent)
+(test-case "node-majority-prediction test case"
+  (check-equal? (node-majority-prediction
+                 (Node (list #(2.3 1.1 0)
+                             #(2.0 1.1 0)
+                             #(2.3 1.0 1)
+                             #(2.0 1.0 1)
+                             #(2.3 1.0 1)
+                             #(2.0 1.0 1)
+                             #(2.4 1.0 1))
+                       1
+                       1.1
+                       (list #(2.3 1.0 1)
+                             #(2.0 1.0 1)
+                             #(2.3 1.0 1)
+                             #(2.0 1.0 1)
+                             #(2.4 1.0 1))
+                       (list #(2.3 1.1 0)
+                             #(2.0 1.1 0)))
+                 2)
+                1)
+  (check-equal? (node-majority-prediction
+                 (Node (list #(2.3 1.1 1)
+                             #(2.0 1.1 1)
+                             #(2.3 1.0 0)
+                             #(2.0 1.0 0)
+                             #(2.3 1.0 0)
+                             #(2.0 1.0 0)
+                             #(2.4 1.0 0))
+                       1
+                       1.1
+                       (list #(2.3 1.0 0)
+                             #(2.0 1.0 0)
+                             #(2.3 1.0 0)
+                             #(2.0 1.0 0)
+                             #(2.4 1.0 0))
+                       (list #(2.3 1.1 1)
+                             #(2.0 1.1 1)))
+                 2)
+                0))
+
+(test-case "data-partition test case"
+  (check-values-equal? (data-partition (lambda (data-point)
+                                         (= (data-point-get-col data-point 2) 0))
+                                       (list #(2.3 1.1 1)
+                                             #(2.0 1.1 1)
+                                             #(2.3 1.0 0)
+                                             #(2.0 1.0 0)
+                                             #(2.3 1.0 0)
+                                             #(2.0 1.0 0)
+                                             #(2.4 1.0 0)))
+                       (list (list #(2.3 1.0 0)
+                                   #(2.0 1.0 0)
+                                   #(2.3 1.0 0)
+                                   #(2.0 1.0 0)
+                                   #(2.4 1.0 0))
+                             (list #(2.3 1.1 1)
+                                   #(2.0 1.1 1)))))
 ;; TODO: create a make-Node procedure to unify making them
 ;; TODO: adapt the rest to new data structure
 ;; TODO: compare procedures properly

@@ -22,6 +22,13 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
 ;; =========================================================
 (define (list-range lst start end)
   (take (drop lst start) (- end start)))
+(define (n-times-string a-string n)
+  (cond
+    [(< n 1) ""]
+    [(= n 1) a-string]
+    [else
+     (string-append a-string
+                    (n-times-string a-string (sub1 n)))]))
 ;; =========================================================
 
 ;; =========================================================
@@ -52,6 +59,25 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
             data))
 (define (data-point-get-col data-point col-index)
   (vector-ref data-point col-index))
+(define (labels-elements-equal? subset)
+  (with-handlers ([exn:fail:contract:arity?
+                   (lambda (exception)
+                     (< (data-length subset) 2))])
+    (apply = subset)))
+
+(define (class-equals? class-1 class-2)
+  (= class-1 class-2))
+
+
+(define (data-majority-prediction data label-column-index)
+  (let-values ([(part1 part2)
+                (data-partition (lambda (data-point)
+                                  (= (data-point-get-col data-point label-column-index) 0))
+                                data)])
+    (cond [(> (data-length part2) (data-length part1)) 1]
+          [else 0])))
+(define (node-majority-prediction node label-column-index)
+  (data-majority-prediction (Node-data node) label-column-index))
 
 (struct Split
   (index
@@ -79,18 +105,8 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
        (empty? (Node-right node))))
 ;; =========================================================
 
-(define (labels-elements-equal? subset)
-  (with-handlers ([exn:fail:contract:arity?
-                   (lambda (exception)
-                     (< (data-length subset) 2))])
-    (apply = subset)))
-
-(define (class-equals? class-1 class-2)
-  (= class-1 class-2))
-
 ;; =========================================================
 ;; DECISION TREE ALGORITHM
-;; (its procedures)
 ;; =========================================================
 (define (calc-proportion subset class-label label-column-index)
   (cond [(data-empty? subset) 0]
@@ -180,20 +196,16 @@ PREDICTING:
 |#
 
 (define (predict-at-leaf-node leaf label-column-index)
-  (define partitioning-predicate
-    (lambda (data-point)
-      (= (data-point-get-col data-point label-column-index) 0)))
-  (let-values
-      ([(part1 part2) (data-partition partitioning-predicate (Node-data leaf))])
-      (cond [(>= (length part1) (length part2)) 0]
-            [else 1])))
+  (node-majority-prediction leaf label-column-index))
 
 (define (fit data
              feature-column-indices
              label-column-index
              #:max-depth [max-depth 6]
              #:min-data-points [min-data-points 12]
-             #:min-data-points-ratio [min-data-points-ratio 0.02])
+             #:min-data-points-ratio [min-data-points-ratio 0.02]
+             #:min-impurity-split [min-impurity-split (expt 10 -7)]
+             #:stop-at-no-impurity-improvement [stop-at-no-impurity-improvement true])
   (define all-data-length (data-length data))
   (define current-depth 1)
 
@@ -218,48 +230,100 @@ PREDICTING:
   (define (insufficient-data-points-ratio-for-split? subset)
     (<= (/ (data-length subset) all-data-length) min-data-points-ratio))
 
+  (define (no-improvement? previous-split-impurity split-impurity)
+    (and (<= previous-split-impurity split-impurity)
+         stop-at-no-impurity-improvement))
+
+  (define (insufficient-impurity? impurity)
+    (< impurity min-impurity-split))
   #|
   Here we do the recursive splitting.
   |#
-  (define (recursive-split subset current-depth)
+  (define (recursive-split subset current-depth previous-split-impurity)
     (display "recursive split on depth: ") (displayln current-depth)
     #|
     Before splitting further, we check for stopping early conditions.
     |#
     (cond [(max-depth-reached? current-depth)
            (displayln "STOPPING CONDITION: maximum depth")
+           (displayln (string-append "INFO: still got "
+                                     (number->string (data-length subset))
+                                     " data points"))
            (make-leaf-node subset)]
           [(insufficient-data-points-for-split? subset)
            (displayln "STOPPING CONDITION: insuficient number of data points")
+           (displayln (string-append "INFO: still got "
+                                     (number->string (data-length subset))
+                                     " data points"))
            (make-leaf-node subset)]
           [(insufficient-data-points-ratio-for-split? subset)
            (displayln "STOPPING CONDITION: insuficient ratio of data points")
+           (displayln (string-append "INFO: still got "
+                                     (number->string (data-length subset))
+                                     " data points"))
            (make-leaf-node subset)]
           [(all-same-label? subset)
            (displayln "STOPPING CONDITION: all same label")
+           (displayln (string-append "INFO: still got "
+                                     (number->string (data-length subset))
+                                     " data points"))
            (make-leaf-node subset)]
           [else
+           (displayln (string-append "INFO: CONTINUING SPLITT: still got "
+                                     (number->string (data-length subset))
+                                     " data points"))
            ;;(display "input data for searching best split:") (displayln subset)
            (let* ([best-split (get-best-split subset
                                               gini-index
                                               feature-column-indices
                                               label-column-index)])
-             #|
-             Here are the recursive calls.
-             This is not tail recursive, but since the data structure itself is recursive
-             and we only have as many procedure calls as there are branches in the tree,
-             it is OK to not be tail recursive here.
-             |#
-             ;; (display "got best split subsets:")
-             ;; (displayln (Split-subsets best-split))
-             (Node subset
-                   (Split-index best-split)
-                   (Split-value best-split)
-                   (recursive-split (car (Split-subsets best-split))
-                                    (add1 current-depth))
-                   (recursive-split (cadr (Split-subsets best-split))
-                                    (add1 current-depth))))]))
-  (recursive-split data 1))
+             (cond [(no-improvement? previous-split-impurity (Split-cost best-split))
+                    (displayln (string-append "STOPPING CONDITION: "
+                                              "no improvement in impurity: previously: "
+                                              (number->string previous-split-impurity) " "
+                                              "now: "
+                                              (number->string (Split-cost best-split))))
+                    (make-leaf-node subset)]
+                   [(insufficient-impurity? previous-split-impurity)
+                    (displayln "STOPPING CONDITION: not enough impurity for splitting further")
+                    (make-leaf-node subset)]
+                   [else
+                    #|
+                    Here are the recursive calls.
+                    This is not tail recursive, but since the data structure itself is recursive
+                    and we only have as many procedure calls as there are branches in the tree,
+                    it is OK to not be tail recursive here.
+                    |#
+                    (Node subset
+                               (Split-index best-split)
+                               (Split-value best-split)
+                               (recursive-split (car (Split-subsets best-split))
+                                                (add1 current-depth)
+                                                (Split-cost best-split))
+                               (recursive-split (cadr (Split-subsets best-split))
+                                                (add1 current-depth)
+                                                (Split-cost best-split)))]))]))
+  (recursive-split data 1 1.0))
+
+(define (print-tree tree label-column-index)
+  (define (tree->string tree depth)
+    (cond [(leaf-node? tree)
+           (string-append (n-times-string "  " depth)
+                          "["
+                          (number->string
+                           (node-majority-prediction tree label-column-index))
+                          "]\n")]
+          [else
+           (string-append
+            (string-append (n-times-string "  " depth)
+                           "[feature:"
+                           (number->string (Node-split-feature-index tree))
+                           " < "
+                           (number->string (Node-split-value tree))
+                           "]\n")
+            (tree->string (Node-left tree) (add1 depth))
+            (tree->string (Node-right tree) (add1 depth)))]))
+  (displayln (tree->string tree 0)))
 
 ;; =========================================================
 
@@ -278,8 +342,8 @@ PREDICTING:
 (collect-garbage)
 (time
  (let ([a (fit data-set (list 0 1 2 3) 4)])
-   (displayln "finished")))
-
+   (displayln "finished")
+   (print-tree a 4)))
 #|
 (displayln (string-append "working with "
                           (number->string (data-length small-data-set))
@@ -315,9 +379,8 @@ PREDICTING:
      (displayln "finished"))))
 
 #|
-Improvements to do:
-- Memoization:
-  If I'm reading this right, for a given data set, you should be able
-  to memoize calls to `data-get-col`.
-  (remember the columns, so that they don't need to be calculated again!)
+IMPROVEMENTS:
+
+- add scikit-learn's min_impurity_split kwrarg
+- remove data from not leaf nodes by using struct setters
 |#
