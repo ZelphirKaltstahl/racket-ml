@@ -12,7 +12,20 @@
                                 string->number
                                 (lambda (a-class) (inexact->exact (string->number a-class)))))
 (define data-set (all-rows FILE-PATH #:column-converters COLUMN-CONVERTERS))
+(define dev-data-set (list #(2.771244718 1.784783929 0)
+                           #(1.728571309 1.169761413 0)
+                           #(3.678319846 2.81281357 0)
+                           #(3.961043357 2.61995032 0)
+                           #(2.999208922 2.209014212 0)
+                           #(7.497545867 3.162953546 1)
+                           #(9.00220326 3.339047188 1)
+                           #(7.444542326 0.476683375 1)
+                           #(10.12493903 3.234550982 1)
+                           #(6.642287351 3.319983761 1)))
 
+;; ===============
+;; DATA STRUCTURES
+;; ===============
 (struct Split (index value subsets cost)
   #:transparent)
 
@@ -33,9 +46,9 @@
 (define (node-majority-prediction node label-column-index)
   (data-majority-prediction (Node-data node) label-column-index))
 
-;; =========================================================
+;; =======================
 ;; DECISION TREE ALGORITHM
-;; =========================================================
+;; =======================
 (define (calc-proportion subset class-label label-column-index)
 
   (define (get-class-counter a-class-label)
@@ -71,20 +84,18 @@ implement gini index.
     (list part1 part2)))
 
 (define (get-best-split data
-                        split-cost-function
                         feature-column-indices
                         label-column-index)
   (define (select-better-split earlier-best-result
-                               split-cost-function
                                data
                                split-feature-index
                                split-value)
     (let* ([new-split-subsets (split-data data split-feature-index split-value)]
-           [new-split-cost (split-cost-function new-split-subsets
-                                                label-column-index)])
+           [new-split-cost (gini-index new-split-subsets
+                                       label-column-index)])
       (cond [(< new-split-cost (Split-cost earlier-best-result))
-             (display "new best split cost:")
-             (displayln new-split-cost)
+             #;(displayln earlier-best-result)
+             (display "new best split cost: ") (displayln new-split-cost)
              (Split split-feature-index
                     split-value
                     new-split-subsets
@@ -99,7 +110,6 @@ implement gini index.
           [else (iter-values split-feature-index
                              (data-rest remaining-rows)
                              (select-better-split current-result
-                                                  split-cost-function
                                                   data
                                                   split-feature-index
                                                   (data-point-get-col (data-first remaining-rows)
@@ -128,9 +138,9 @@ PREDICTING:
 (define (predict-at-leaf-node leaf label-column-index)
   (node-majority-prediction leaf label-column-index))
 
-(define (fit data
-             feature-column-indices
-             label-column-index
+(define (fit #:train-data data
+             #:feature-column-indices feature-column-indices
+             #:label-column-index label-column-index
              #:max-depth [max-depth 6]
              #:min-data-points [min-data-points 12]
              #:min-data-points-ratio [min-data-points-ratio 0.02]
@@ -203,9 +213,8 @@ PREDICTING:
        (displayln (string-append "INFO: CONTINUING SPLITT: still got "
                                  (number->string (data-length subset))
                                  " data points"))
-       ;;(display "input data for searching best split:") (displayln subset)
+       ;; (display "input data for searching best split:") (displayln subset)
        (let* ([best-split (get-best-split subset
-                                          gini-index
                                           feature-column-indices
                                           label-column-index)])
          (cond
@@ -276,10 +285,10 @@ PREDICTING:
     (predict tree data-point label-column-index)))
 
 ;; evaluates the algorithm using cross validation split with n folds
-(define (evaluate-algorithm data-set
-                            n-folds
-                            feature-column-indices
-                            label-column-index
+(define (evaluate-algorithm #:data-set data-set
+                            #:n-folds n-folds
+                            #:feature-column-indices feature-column-indices
+                            #:label-column-index label-column-index
                             #:max-depth [max-depth 6]
                             #:min-data-points [min-data-points 12]
                             #:min-data-points-ratio [min-data-points-ratio 0.02]
@@ -296,16 +305,16 @@ PREDICTING:
                                                         label-column-index))
                             fold)]
              [actual-labels (data-get-col fold label-column-index)]
-             [tree (fit train-set
-                        feature-column-indices
-                        label-column-index
+             [tree (fit #:train-data train-set
+                        #:feature-column-indices feature-column-indices
+                        #:label-column-index label-column-index
                         #:max-depth max-depth
                         #:min-data-points min-data-points
                         #:min-data-points-ratio min-data-points-ratio
                         #:min-impurity-split min-impurity-split
                         #:stop-at-no-impurity-improvement stop-at-no-impurity-improvement)]
              [predicted-labels (get-predictions tree test-set label-column-index)])
-        (print-tree tree label-column-index)
+        #;(print-tree tree label-column-index)
         (accuracy-metric actual-labels predicted-labels)))))
 
 ;; displays a string representation of a learned decision tree
@@ -330,60 +339,30 @@ PREDICTING:
   (displayln (tree->string tree 0)))
 ;; =========================================================
 
-(define shuffled-data (shuffle data-set))
-
-(random-seed 12345)  ; for reproducible results
+(define shuffled-data-set (shuffle data-set))
 
 (define small-data-set
-  (data-range shuffled-data 0 (exact-floor (/ (data-length data-set) 5))))
+  (data-range shuffled-data-set
+              0
+              (exact-floor (/ (data-length shuffled-data-set)
+                              5))))
 
-(displayln (string-append "working with "
-                          (number->string (data-length small-data-set))
-                          " data points"))
 (collect-garbage)
 (collect-garbage)
 (collect-garbage)
 (time
- (for ([i (in-range 1)])
-   (print-tree (fit small-data-set (list 0 1 2 3) 4) 4)))
-
-#;(time
- (let ([a (fit data-set (list 0 1 2 3) 4)])
-   (displayln "finished")
-   (print-tree a 4)))
-#|
-(displayln (string-append "working with "
-                          (number->string (data-length small-data-set))
-                          " data points"))
-(collect-garbage)
-(collect-garbage)
-(collect-garbage)
-(time
- (let ([a (fit small-data-set (list 0 1 2 3) 4)])
-   (displayln "finished")))
-|#
-
-#;(let ([TEST-DATA (list #(2.771244718 1.784783929 0)
-                       #(1.728571309 1.169761413 0)
-                       #(3.678319846 2.81281357 0)
-                       #(3.961043357 2.61995032 0)
-                       #(2.999208922 2.209014212 0)
-                       #(7.497545867 3.162953546 1)
-                       #(9.00220326 3.339047188 1)
-                       #(7.444542326 0.476683375 1)
-                       #(10.12493903 3.234550982 1)
-                       #(6.642287351 3.319983761 1))])
-  (collect-garbage)
-  (collect-garbage)
-  (collect-garbage)
-  (time
-   (let ([a (fit TEST-DATA
-                 (list 0 1)
-                 2
-                 #:min-data-points 2
-                 #:min-data-points-ratio 0.01
-                 #:max-depth 3)])
-     (displayln "finished"))))
+ (for/list ([i (in-range 1)])
+   (mean
+    (evaluate-algorithm #:data-set (shuffle data-set)
+                        #:n-folds 4
+                        #:feature-column-indices (list 0 1 2 3)
+                        #:label-column-index 4
+                        #:max-depth 5
+                        #:min-data-points 12
+                        #:min-data-points-ratio 0.02
+                        #:min-impurity-split (expt 10 -7)
+                        #:stop-at-no-impurity-improvement true
+                        #:random-state 0))))
 
 #|
 IMPROVEMENTS:

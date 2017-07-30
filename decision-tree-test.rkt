@@ -185,7 +185,6 @@
         [feature-columns-indices (list 0 1)]
         [label-column-index 2])
     (check-equal? (get-best-split test-data
-                                  gini-index
                                   feature-columns-indices
                                   label-column-index)
                   (Split 0
@@ -227,7 +226,7 @@
               "leaf-node? is not correct")
   (check-false (let* ([subset (list #(5.0 6.0 0)
                                     #(7.0 8.0 1))]
-                      [best-split (get-best-split subset gini-index (list 0 1) 2)])
+                      [best-split (get-best-split subset (list 0 1) 2)])
                  (leaf-node? (Node subset
                                    (Split-index best-split)
                                    (Split-value best-split)
@@ -251,9 +250,13 @@
                          #(2.4 1.0 1))]
         [feature-columns-indices (list 0 1)]
         [label-column-index 2])
-    (check-equal? (fit test-data (list 0 1) 2
-                       #:max-depth 2 #:min-data-points 4 #:min-data-points-ratio 0.02)
-                  (let ([best-split (get-best-split test-data gini-index (list 0 1) 2)])
+    (check-equal? (fit #:train-data test-data
+                       #:feature-column-indices (list 0 1)
+                       #:label-column-index 2
+                       #:max-depth 2
+                       #:min-data-points 4
+                       #:min-data-points-ratio 0.02)
+                  (let ([best-split (get-best-split test-data(list 0 1) 2)])
                     (Node test-data
                           (Split-index best-split)
                           (Split-value best-split)
@@ -284,9 +287,13 @@
                           #(2.3 1.0 1)
                           #(2.0 1.0 1)
                           #(2.4 1.0 1))]
-         [best-split (get-best-split test-data gini-index (list 0 1) 2)])
-    (check-equal? (fit test-data (list 0 1) 2
-                       #:max-depth 3 #:min-data-points 2 #:min-data-points-ratio 0.02)
+         [best-split (get-best-split test-data (list 0 1) 2)])
+    (check-equal? (fit #:train-data test-data
+                       #:feature-column-indices (list 0 1)
+                       #:label-column-index 2
+                       #:max-depth 3
+                       #:min-data-points 2
+                       #:min-data-points-ratio 0.02)
                   (Node test-data
                         (Split-index best-split)
                         (Split-value best-split)
@@ -303,7 +310,7 @@
                                              #(2.3 1.0 1)
                                              #(2.0 1.0 1)
                                              #(2.4 1.0 1))]
-                               [best-split (get-best-split subset gini-index (list 0 1) 2)])
+                               [best-split (get-best-split subset (list 0 1) 2)])
                           (Node subset
                                 (Split-index best-split)
                                 (Split-value best-split)
@@ -322,9 +329,13 @@
                           #(2.3 1.0 1)
                           #(2.0 1.0 1)
                           #(2.4 1.0 1))]
-         [best-split (get-best-split test-data gini-index (list 0 1) 2)])
-    (check-equal? (fit test-data (list 0 1) 2
-                       #:max-depth 3 #:min-data-points 2 #:min-data-points-ratio 0.02)
+         [best-split (get-best-split test-data (list 0 1) 2)])
+    (check-equal? (fit #:train-data test-data
+                       #:feature-column-indices (list 0 1)
+                       #:label-column-index 2
+                       #:max-depth 3
+                       #:min-data-points 2
+                       #:min-data-points-ratio 0.02)
                   (Node test-data
                         (Split-index best-split)
                         (Split-value best-split)
@@ -581,10 +592,10 @@
                   (list 0 1 0 1))))
 
 (test-case "evaluate-algorithm"
-  (check-equal? (length (evaluate-algorithm (shuffle TEST-DATA)
-                                            4
-                                            (list 0 1 2 3)
-                                            2
+  (check-equal? (length (evaluate-algorithm #:data-set (shuffle TEST-DATA)
+                                            #:n-folds 4
+                                            #:feature-column-indices (list 0 1 2 3)
+                                            #:label-column-index 2
                                             #:max-depth 3
                                             #:min-data-points 4
                                             #:min-data-points-ratio 0.02

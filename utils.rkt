@@ -26,3 +26,8 @@
         [else (let ([first-chunk (take-up-to n xs)]
                     [rest (drop-up-to n xs)])
                 (cons first-chunk (split-into-chunks-of-size-n rest n)))]))
+
+(define (mean lst)
+  (exact->inexact
+   (/ (apply + lst)
+      (length lst))))
