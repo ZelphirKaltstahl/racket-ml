@@ -2,8 +2,9 @@
 
 
 (require rackunit)
-(require "decision-tree.rkt")
-(require "test-utils.rkt")
+(require "decision-tree.rkt"
+         "test-utils.rkt"
+         "data-representation-abstraction.rkt")
 
 (define TEST-DATA (list #(2.771244718 1.784783929 0)
                         #(1.728571309 1.169761413 0)
@@ -100,14 +101,6 @@
                                     #(1244 769 3))
                               2)
                 (list 1 2 3)))
-
-(test-case "class-equals? test case"
-  (check-true (class-equals? 1 1))
-  (check-true (class-equals? 0 0))
-  (check-true (class-equals? 2 2))
-  (check-false (class-equals? 1 0))
-  (check-false (class-equals? 2 0))
-  (check-false (class-equals? 1 2)))
 
 (test-case "data-point-get-col"
   (check-equal? (data-point-get-col #(0 32 478 282 1) 1)
@@ -496,3 +489,106 @@
                                                 #(2.0 1.1 0)))))])
     (check-equal? (predict tree #(2.3 1.1 0) 2) 0)
     (check-equal? (predict tree #(2.3 1.0 0) 2) 1)))
+
+(test-case "cross-validation-split"
+  (check-equal? (cross-validation-split '(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19)
+                                        4
+                                        #:random-state 12345)
+                (list (list 12 3 10 0 13)
+                      (list 6 9 7 19 8)
+                      (list 18 15 14 5 16)
+                      (list 1 4 2 11 17))))
+
+(test-case "accuracy-metric"
+  (check-equal? (accuracy-metric (list 0 0 0 0)
+                                 (list 1 0 0 0))
+                75.0)
+  (check-equal? (accuracy-metric (list 0 0 0 0)
+                                 (list 1 1 0 0))
+                50.0)
+  (check-equal? (accuracy-metric (list 1 1 1 1)
+                                 (list 1 0 0 0))
+                25.0)
+  (check-equal? (accuracy-metric (list 0 0 0 0)
+                                 (list 0 0 0 0))
+                100.0)
+  (check-equal? (accuracy-metric (list 0 0 0)
+                                 (list 1 0 0))
+                (* (/ 2.0 3) 100)))
+
+(test-case "leave-one-out-k-folds"
+  (check-equal? (leave-one-out-k-folds (list (list #(1 1)
+                                                   #(1 1)
+                                                   #(1 1)
+                                                   #(1 1))
+                                             (list #(2 2)
+                                                   #(2 2)
+                                                   #(2 2)
+                                                   #(2 2))
+                                             (list #(3 3)
+                                                   #(3 3)
+                                                   #(3 3)
+                                                   #(3 3))
+                                             (list #(4 4)
+                                                   #(4 4)
+                                                   #(4 4)
+                                                   #(4 4)))
+                                       (list #(3 3)
+                                             #(3 3)
+                                             #(3 3)
+                                             #(3 3)))
+                (list (list #(1 1)
+                            #(1 1)
+                            #(1 1)
+                            #(1 1))
+                      (list #(2 2)
+                            #(2 2)
+                            #(2 2)
+                            #(2 2))
+                      (list #(4 4)
+                            #(4 4)
+                            #(4 4)
+                            #(4 4)))))
+
+(test-case "data-point-take-features"
+  (check-equal? (data-point-take-features #(0 1 2 3 4) 4)
+                #(0 1 2 3))
+  (check-equal? (data-point-take-features #(10 9 8 4) 3)
+                #(10 9 8)))
+
+(test-case "get-predictions"
+  (let ([tree (Node (list #(2.3 1.1 0)
+                          #(2.0 1.1 0)
+                          #(2.3 1.0 1)
+                          #(2.0 1.0 1)
+                          #(2.3 1.0 1)
+                          #(2.0 1.0 1)
+                          #(2.4 1.0 1))
+                    1
+                    1.1
+                    (make-leaf-node (list #(2.3 1.0 1)
+                                          #(2.0 1.0 1)
+                                          #(2.3 1.0 1)
+                                          #(2.0 1.0 1)
+                                          #(2.4 1.0 1)))
+                    (make-leaf-node (list #(2.3 1.1 0)
+                                          #(2.0 1.1 0))))])
+    (check-equal? (get-predictions tree (list #(2.4 1.2)
+                                              #(1.9 0.9)
+                                              #(3.0 3.0)
+                                              #(0.0 0.5))
+                                   2)
+                  (list 0 1 0 1))))
+
+(test-case "evaluate-algorithm"
+  (check-equal? (length (evaluate-algorithm (shuffle TEST-DATA)
+                                            4
+                                            (list 0 1 2 3)
+                                            2
+                                            #:max-depth 3
+                                            #:min-data-points 4
+                                            #:min-data-points-ratio 0.02
+                                            #:min-impurity-split (expt 10 -7)
+                                            #:stop-at-no-impurity-improvement true
+                                            #:random-state 0))
+                4))

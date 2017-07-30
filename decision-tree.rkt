@@ -1,12 +1,8 @@
 #lang racket
 
-#|
-Implementation adapted from:
-http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-python/
-|#
-
-(require "csv-to-list.rkt")
-(require "utils.rkt")
+(require "csv-to-list.rkt"
+         "utils.rkt"
+         "data-representation-abstraction.rkt")
 (provide (all-defined-out))
 
 (define FILE-PATH "data_banknote_authentication.csv")
@@ -17,66 +13,10 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
                                 (lambda (a-class) (inexact->exact (string->number a-class)))))
 (define data-set (all-rows FILE-PATH #:column-converters COLUMN-CONVERTERS))
 
-;; =========================================================
-;; ABSTRACTION LAYER
-;; (for data representation)
-;; =========================================================
-(define (data-empty? data)
-  (empty? data))
-(define (data-first data)
-  (car data))
-(define (data-rest data)
-  (cdr data))
-(define (data-range data start end)
-  (list-range data start end))
-(define (data-length data)
-  (length data))
-(define (data-point-length data-point)
-  (vector-length data-point))
-(define (data-filter predicate data)
-  (filter predicate data))
-(define (data-partition predicate data)
-  (partition predicate data))
-(define (data-map procedure data)
-  (map procedure data))
-(define (data-get-col data col-index)
-  (data-map (lambda (data-point)
-              (data-point-get-col data-point col-index))
-            data))
-(define (data-point-get-col data-point col-index)
-  (vector-ref data-point col-index))
-(define (labels-elements-equal? subset)
-  (with-handlers ([exn:fail:contract:arity?
-                   (lambda (exception)
-                     (< (data-length subset) 2))])
-    (apply = subset)))
-
-(define (class-equals? class-1 class-2)
-  (= class-1 class-2))
-
-
-(define (data-majority-prediction data label-column-index)
-  (let-values ([(part1 part2)
-                (data-partition (lambda (data-point)
-                                  (= (data-point-get-col data-point label-column-index) 0))
-                                data)])
-    (cond [(> (data-length part2) (data-length part1)) 1]
-          [else 0])))
-(define (node-majority-prediction node label-column-index)
-  (data-majority-prediction (Node-data node) label-column-index))
-
-(struct Split
-  (index
-   value
-   subsets
-   cost)
+(struct Split (index value subsets cost)
   #:transparent)
 
-(struct Node
-  (data
-   split-feature-index
-   split-value
-   left right)
+(struct Node (data split-feature-index split-value left right)
   #:transparent)
 
 (define (make-leaf-node data)
@@ -87,21 +27,25 @@ http://machinelearningmastery.com/implement-decision-tree-algorithm-scratch-pyth
         empty))
 
 (define (leaf-node? node)
-  (and (empty? (Node-left node))
-       (empty? (Node-right node))))
-;; =========================================================
+  (and (data-empty? (Node-left node))
+       (data-empty? (Node-right node))))
+
+(define (node-majority-prediction node label-column-index)
+  (data-majority-prediction (Node-data node) label-column-index))
 
 ;; =========================================================
 ;; DECISION TREE ALGORITHM
 ;; =========================================================
 (define (calc-proportion subset class-label label-column-index)
+
+  (define (get-class-counter a-class-label)
+    (lambda (row)
+      (= a-class-label
+         (data-point-get-col row label-column-index))))
+
   (cond [(data-empty? subset) 0]
         [else (let* ([row-count (data-length subset)]
-                     [class-count (count
-                                   (lambda (row)
-                                     (class-equals? class-label
-                                                    (data-point-get-col row label-column-index)))
-                                   subset)]
+                     [class-count (count (get-class-counter class-label) subset)]
                      [prop (/ class-count row-count)])
                 (* prop (- 1.0 prop)))]))
 
@@ -230,65 +174,67 @@ PREDICTING:
     #|
     Before splitting further, we check for stopping early conditions.
     |#
-    (cond [(max-depth-reached? current-depth)
-           (displayln "STOPPING CONDITION: maximum depth")
-           (displayln (string-append "INFO: still got "
-                                     (number->string (data-length subset))
-                                     " data points"))
-           (make-leaf-node subset)]
-          [(insufficient-data-points-for-split? subset)
-           (displayln "STOPPING CONDITION: insuficient number of data points")
-           (displayln (string-append "INFO: still got "
-                                     (number->string (data-length subset))
-                                     " data points"))
-           (make-leaf-node subset)]
-          [(insufficient-data-points-ratio-for-split? subset)
-           (displayln "STOPPING CONDITION: insuficient ratio of data points")
-           (displayln (string-append "INFO: still got "
-                                     (number->string (data-length subset))
-                                     " data points"))
-           (make-leaf-node subset)]
-          [(all-same-label? subset)
-           (displayln "STOPPING CONDITION: all same label")
-           (displayln (string-append "INFO: still got "
-                                     (number->string (data-length subset))
-                                     " data points"))
-           (make-leaf-node subset)]
-          [else
-           (displayln (string-append "INFO: CONTINUING SPLITT: still got "
-                                     (number->string (data-length subset))
-                                     " data points"))
-           ;;(display "input data for searching best split:") (displayln subset)
-           (let* ([best-split (get-best-split subset
-                                              gini-index
-                                              feature-column-indices
-                                              label-column-index)])
-             (cond [(no-improvement? previous-split-impurity (Split-cost best-split))
-                    (displayln (string-append "STOPPING CONDITION: "
-                                              "no improvement in impurity: previously: "
-                                              (number->string previous-split-impurity) " "
-                                              "now: "
-                                              (number->string (Split-cost best-split))))
-                    (make-leaf-node subset)]
-                   [(insufficient-impurity? previous-split-impurity)
-                    (displayln "STOPPING CONDITION: not enough impurity for splitting further")
-                    (make-leaf-node subset)]
-                   [else
-                    #|
-                    Here are the recursive calls.
-                    This is not tail recursive, but since the data structure itself is recursive
-                    and we only have as many procedure calls as there are branches in the tree,
-                    it is OK to not be tail recursive here.
-                    |#
-                    (Node subset
-                               (Split-index best-split)
-                               (Split-value best-split)
-                               (recursive-split (car (Split-subsets best-split))
-                                                (add1 current-depth)
-                                                (Split-cost best-split))
-                               (recursive-split (cadr (Split-subsets best-split))
-                                                (add1 current-depth)
-                                                (Split-cost best-split)))]))]))
+    (cond
+      [(max-depth-reached? current-depth)
+       (displayln "STOPPING CONDITION: maximum depth")
+       (displayln (string-append "INFO: still got "
+                                 (number->string (data-length subset))
+                                 " data points"))
+       (make-leaf-node subset)]
+      [(insufficient-data-points-for-split? subset)
+       (displayln "STOPPING CONDITION: insuficient number of data points")
+       (displayln (string-append "INFO: still got "
+                                 (number->string (data-length subset))
+                                 " data points"))
+       (make-leaf-node subset)]
+      [(insufficient-data-points-ratio-for-split? subset)
+       (displayln "STOPPING CONDITION: insuficient ratio of data points")
+       (displayln (string-append "INFO: still got "
+                                 (number->string (data-length subset))
+                                 " data points"))
+       (make-leaf-node subset)]
+      [(all-same-label? subset)
+       (displayln "STOPPING CONDITION: all same label")
+       (displayln (string-append "INFO: still got "
+                                 (number->string (data-length subset))
+                                 " data points"))
+       (make-leaf-node subset)]
+      [else
+       (displayln (string-append "INFO: CONTINUING SPLITT: still got "
+                                 (number->string (data-length subset))
+                                 " data points"))
+       ;;(display "input data for searching best split:") (displayln subset)
+       (let* ([best-split (get-best-split subset
+                                          gini-index
+                                          feature-column-indices
+                                          label-column-index)])
+         (cond
+           [(no-improvement? previous-split-impurity (Split-cost best-split))
+            (displayln (string-append "STOPPING CONDITION: "
+                                      "no improvement in impurity: previously: "
+                                      (number->string previous-split-impurity) " "
+                                      "now: "
+                                      (number->string (Split-cost best-split))))
+            (make-leaf-node subset)]
+           [(insufficient-impurity? previous-split-impurity)
+            (displayln "STOPPING CONDITION: not enough impurity for splitting further")
+            (make-leaf-node subset)]
+           [else
+            #|
+            Here are the recursive calls.
+            This is not tail recursive, but since the data structure itself is recursive
+            and we only have as many procedure calls as there are branches in the tree,
+            it is OK to not be tail recursive here.
+            |#
+            (Node subset
+                  (Split-index best-split)
+                  (Split-value best-split)
+                  (recursive-split (car (Split-subsets best-split))
+                                   (add1 current-depth)
+                                   (Split-cost best-split))
+                  (recursive-split (cadr (Split-subsets best-split))
+                                   (add1 current-depth)
+                                   (Split-cost best-split)))]))]))
   (recursive-split data 1 1.0))
 
 (define (predict tree data-point label-column-index)
@@ -301,6 +247,68 @@ PREDICTING:
                 (predict (Node-left tree) data-point label-column-index)]
                [else (predict (Node-right tree) data-point label-column-index)])]))
 
+(define (cross-validation-split data-set n-folds #:random-state [random-state false])
+  (if random-state
+      (random-seed random-state)
+      'none)
+  (let* ([shuffled-data-set (shuffle data-set)]
+         [number-of-data-points (data-length shuffled-data-set)]
+         [fold-size (exact-floor (/ number-of-data-points n-folds))])
+    (split-into-chunks-of-size-n shuffled-data-set
+                                 (exact-ceiling (/ number-of-data-points n-folds)))))
+
+(define (accuracy-metric actual-labels predicted-labels)
+  (let ([correct-count (for/sum ([actual-label (in-list actual-labels)]
+                                 [predicted-label (in-list predicted-labels)])
+                         (if (= actual-label predicted-label) 1 0))]
+        [total-count (length actual-labels)])
+    (* (/ correct-count total-count) 100.0)))
+
+(define (leave-one-out-k-folds folds left-out-fold)
+  (define leave-one-out-filter-procedure
+    (lambda (fold)
+      (not (equal? fold left-out-fold))))
+  (filter leave-one-out-filter-procedure
+          folds))
+
+(define (get-predictions tree data-set label-column-index)
+  (for/list ([data-point data-set])
+    (predict tree data-point label-column-index)))
+
+;; evaluates the algorithm using cross validation split with n folds
+(define (evaluate-algorithm data-set
+                            n-folds
+                            feature-column-indices
+                            label-column-index
+                            #:max-depth [max-depth 6]
+                            #:min-data-points [min-data-points 12]
+                            #:min-data-points-ratio [min-data-points-ratio 0.02]
+                            #:min-impurity-split [min-impurity-split (expt 10 -7)]
+                            #:stop-at-no-impurity-improvement [stop-at-no-impurity-improvement true]
+                            #:random-state [random-state false])
+  (let ([folds (cross-validation-split data-set
+                                       n-folds
+                                       #:random-state random-state)])
+    (for/list ([fold folds])
+      (let* ([train-set (foldr append empty (leave-one-out-k-folds folds fold))]
+             [test-set (map (lambda (data-point)
+                              (data-point-take-features data-point
+                                                        label-column-index))
+                            fold)]
+             [actual-labels (data-get-col fold label-column-index)]
+             [tree (fit train-set
+                        feature-column-indices
+                        label-column-index
+                        #:max-depth max-depth
+                        #:min-data-points min-data-points
+                        #:min-data-points-ratio min-data-points-ratio
+                        #:min-impurity-split min-impurity-split
+                        #:stop-at-no-impurity-improvement stop-at-no-impurity-improvement)]
+             [predicted-labels (get-predictions tree test-set label-column-index)])
+        (print-tree tree label-column-index)
+        (accuracy-metric actual-labels predicted-labels)))))
+
+;; displays a string representation of a learned decision tree
 (define (print-tree tree label-column-index)
   (define (tree->string tree depth)
     (cond [(leaf-node? tree)
@@ -320,10 +328,11 @@ PREDICTING:
             (tree->string (Node-left tree) (add1 depth))
             (tree->string (Node-right tree) (add1 depth)))]))
   (displayln (tree->string tree 0)))
-
 ;; =========================================================
 
 (define shuffled-data (shuffle data-set))
+
+(random-seed 12345)  ; for reproducible results
 
 (define small-data-set
   (data-range shuffled-data 0 (exact-floor (/ (data-length data-set) 5))))
@@ -336,7 +345,7 @@ PREDICTING:
 (collect-garbage)
 (time
  (for ([i (in-range 1)])
-   (print-tree (fit data-set (list 0 1 2 3) 4) 4)))
+   (print-tree (fit small-data-set (list 0 1 2 3) 4) 4)))
 
 #;(time
  (let ([a (fit data-set (list 0 1 2 3) 4)])
@@ -379,4 +388,5 @@ PREDICTING:
 #|
 IMPROVEMENTS:
 - remove data from not leaf nodes by using struct setters
+- remove split as a struct from the algorithm and use match-let or something like that
 |#
