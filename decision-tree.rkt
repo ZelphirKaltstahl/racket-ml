@@ -368,4 +368,5 @@ PREDICTING:
 IMPROVEMENTS:
 - remove data from not leaf nodes by using struct setters
 - remove split as a struct from the algorithm and use match-let or something like that
+- find the remaining randomness (if there is any) which is not determined by random-state keyword arguments yet (why am I not getting the same result every time?)
 |#
