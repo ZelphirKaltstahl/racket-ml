@@ -83,37 +83,56 @@ implement gini index.
                                 data)])
     (list part1 part2)))
 
-(define (get-best-split data
-                        feature-column-indices
-                        label-column-index)
-  (define (select-better-split earlier-best-result
-                               data
-                               split-feature-index
-                               split-value)
+(define (get-best-split data feature-column-indices label-column-index)
+
+  (define-values (col-index value subsets cost)
+    (for*/fold ([previous-best-index +inf.0]
+                [previous-best-value +inf.0]
+                [previous-best-subsets empty]
+                [previous-best-cost +inf.0])  ; initial values / previous values
+    ([col-index (in-range (sub1 (vector-length (data-first data))))]
+     [value (in-list (data-get-col data col-index))])
+    (let* ([current-value value]
+           [current-index col-index]
+           [current-subsets (split-data data col-index current-value)]
+           [current-cost (gini-index current-subsets label-column-index)])
+      (if (< current-cost previous-best-cost)
+          (values current-index
+                  current-value
+                  current-subsets
+                  current-cost)
+          (values previous-best-index
+                  previous-best-value
+                  previous-best-subsets
+                  previous-best-cost)))))
+  (Split col-index value subsets cost)
+
+  #|
+  (define (select-better-split earlier-best-split data split-feature-index split-value)
     (let* ([new-split-subsets (split-data data split-feature-index split-value)]
-           [new-split-cost (gini-index new-split-subsets
-                                       label-column-index)])
-      (cond [(< new-split-cost (Split-cost earlier-best-result))
-             #;(displayln earlier-best-result)
+           [new-split-cost (gini-index new-split-subsets label-column-index)])
+      (cond [(< new-split-cost (Split-cost earlier-best-split))
              (display "new best split cost: ") (displayln new-split-cost)
-             (Split split-feature-index
-                    split-value
-                    new-split-subsets
-                    new-split-cost)]
-            [else earlier-best-result])))
+             (Split split-feature-index split-value new-split-subsets new-split-cost)]
+            [else earlier-best-split])))
+
+
 
   ;; iterates over values of one feature, to find the best split value
   (define (iter-values split-feature-index remaining-rows current-result)
-    ;;(display "remaining rows: ") (display (data-length remaining-rows)) (newline)
-    (cond [(data-empty? remaining-rows) current-result]
-          [(= (Split-cost current-result) 0.0) current-result]
-          [else (iter-values split-feature-index
-                             (data-rest remaining-rows)
-                             (select-better-split current-result
-                                                  data
-                                                  split-feature-index
-                                                  (data-point-get-col (data-first remaining-rows)
-                                                                      split-feature-index)))]))
+    (cond
+      [(data-empty? remaining-rows) current-result]
+      [(= (Split-cost current-result) 0.0) current-result]
+      [else
+       (let ([better-split
+              (select-better-split current-result
+                                   data
+                                   split-feature-index
+                                   (data-point-get-col (data-first remaining-rows)
+                                                       split-feature-index))])
+         (iter-values split-feature-index
+                      (data-rest remaining-rows)
+                      better-split))]))
 
   ;; iterates over features which might be the split feature
   (define (iter-features remaining-feature-column-indices current-result)
@@ -126,7 +145,9 @@ implement gini index.
                                               current-result))]))
   ;; starting the whole thing
   (iter-features feature-column-indices
-                 (Split +inf.0 +inf.0 empty +inf.0)))
+                 (Split +inf.0 +inf.0 empty +inf.0))
+  |#
+  )
 
 
 
@@ -350,7 +371,7 @@ PREDICTING:
 (collect-garbage)
 (collect-garbage)
 (collect-garbage)
-(time
+#;(time
  (for/list ([i (in-range 1)])
    (mean
     (evaluate-algorithm #:data-set (shuffle data-set)
@@ -363,10 +384,25 @@ PREDICTING:
                         #:min-impurity-split (expt 10 -7)
                         #:stop-at-no-impurity-improvement true
                         #:random-state 0))))
+(collect-garbage)
+(collect-garbage)
+(collect-garbage)
+(time
+ (for/list ([i (in-range 1)])
+   (define tree (fit #:train-data (shuffle data-set)
+                     #:feature-column-indices (list 0 1 2 3)
+                     #:label-column-index 4
+                     #:max-depth 5
+                     #:min-data-points 12
+                     #:min-data-points-ratio 0.02
+                     #:min-impurity-split (expt 10 -7)
+                     #:stop-at-no-impurity-improvement true))
+   'done))
 
 #|
 IMPROVEMENTS:
 - remove data from not leaf nodes by using struct setters
 - remove split as a struct from the algorithm and use match-let or something like that
 - find the remaining randomness (if there is any) which is not determined by random-state keyword arguments yet (why am I not getting the same result every time?)
+- return not only the predicted label, but also how sure we are about the prediction (percentage of data points in the leaf node, which has the predicted label)
 |#
