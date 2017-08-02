@@ -280,7 +280,7 @@ PREDICTING:
 (define (cross-validation-split data-set n-folds #:random-state [random-state false])
   (if random-state
       (random-seed random-state)
-      'none)
+      (void))
   (let* ([shuffled-data-set (shuffle data-set)]
          [number-of-data-points (data-length shuffled-data-set)]
          [fold-size (exact-floor (/ number-of-data-points n-folds))])
@@ -358,7 +358,35 @@ PREDICTING:
             (tree->string (Node-left tree) (add1 depth))
             (tree->string (Node-right tree) (add1 depth)))]))
   (displayln (tree->string tree 0)))
+
 ;; =========================================================
+;; PRUNING
+;; =========================================================
+(define (count-leaves tree)
+  (cond [(leaf-node? tree) 1]
+        [else (+ (count-leaves (Node-left tree))
+                 (count-leaves (Node-right tree)))]))
+
+#|
+- remove split with the least improvement in impurity / cost
+  - to achieve max num of leaves
+  - save the split cost inside a node?
+  - recalculate the gini-index from the left and right of a node (parent) which produced this leaf.
+  - recalculate the gini-index of the leaf.
+  - compare costs and see if they are lower than x.
+  - inner (cost?) -> inner (cost?) -> leaf
+    (parent)         (child)       -> leaf
+                     inner (cost?) -> leaf
+                     (child)       -> leaf
+- remove all splits with less improvement than x in cost?
+  - but this can be done already with early stopping parameters!
+-
+|#
+
+;; =========================================================
+;; RUNNING
+;; =========================================================
+
 
 (define shuffled-data-set (shuffle data-set))
 
@@ -371,15 +399,15 @@ PREDICTING:
 (collect-garbage)
 (collect-garbage)
 (collect-garbage)
-#;(time
+(time
  (for/list ([i (in-range 1)])
    (mean
     (evaluate-algorithm #:data-set (shuffle data-set)
-                        #:n-folds 4
+                        #:n-folds 10
                         #:feature-column-indices (list 0 1 2 3)
                         #:label-column-index 4
                         #:max-depth 5
-                        #:min-data-points 12
+                        #:min-data-points 24
                         #:min-data-points-ratio 0.02
                         #:min-impurity-split (expt 10 -7)
                         #:stop-at-no-impurity-improvement true
@@ -387,7 +415,7 @@ PREDICTING:
 (collect-garbage)
 (collect-garbage)
 (collect-garbage)
-(time
+#;(time
  (for/list ([i (in-range 1)])
    (define tree (fit #:train-data (shuffle data-set)
                      #:feature-column-indices (list 0 1 2 3)
@@ -402,7 +430,6 @@ PREDICTING:
 #|
 IMPROVEMENTS:
 - remove data from not leaf nodes by using struct setters
-- remove split as a struct from the algorithm and use match-let or something like that
-- find the remaining randomness (if there is any) which is not determined by random-state keyword arguments yet (why am I not getting the same result every time?)
+- find the remaining randomness (if there is any) which is not determined by random-state keyword arguments yet (why am I not getting the same result every time?) - maybe shuffle needs to be parametrized with a random seed instead of merely setting the seed before calling shuffle?
 - return not only the predicted label, but also how sure we are about the prediction (percentage of data points in the leaf node, which has the predicted label)
 |#

@@ -602,4 +602,51 @@
                                             #:min-impurity-split (expt 10 -7)
                                             #:stop-at-no-impurity-improvement true
                                             #:random-state 0))
-                4))
+                4)
+  ;; TODO: real test cose
+  )
+
+(test-case "count-leaves"
+  (check-equal?
+   (count-leaves (Node (list #(2.3 1.1 0)
+                             #(2.0 1.1 0)
+                             #(2.3 1.0 1)
+                             #(2.0 1.0 1)
+                             #(2.3 1.0 1)
+                             #(2.0 1.0 1)
+                             #(2.4 1.0 1))
+                       1
+                       1.1
+                       (make-leaf-node (list #(2.3 1.0 1)
+                                             #(2.0 1.0 1)
+                                             #(2.3 1.0 1)
+                                             #(2.0 1.0 1)
+                                             #(2.4 1.0 1)))
+                       (make-leaf-node (list #(2.3 1.1 0)
+                                             #(2.0 1.1 0)))))
+   2)
+  (check-equal?
+   (count-leaves (Node (list #(2.3 1.1 3.0 0)
+                             #(2.0 1.1 3.0 0)
+                             #(2.3 1.0 4.0 0)
+                             #(2.0 1.0 3.0 1)
+                             #(2.3 1.0 3.0 1)
+                             #(2.0 1.0 3.0 1)
+                             #(2.4 1.0 3.0 1))
+                       1
+                       1.1
+                       (Node (list #(2.3 1.0 4.0 0)
+                                   #(2.0 1.0 3.0 1)
+                                   #(2.3 1.0 3.0 1)
+                                   #(2.0 1.0 3.0 1)
+                                   #(2.4 1.0 3.0 1))
+                             2
+                             4.0
+                             (make-leaf-node (list #(2.0 1.0 3.0 1)
+                                                   #(2.3 1.0 3.0 1)
+                                                   #(2.0 1.0 3.0 1)
+                                                   #(2.4 1.0 3.0 1)))
+                             (make-leaf-node (list #(2.3 1.0 4.0 0))))
+                       (make-leaf-node (list #(2.3 1.1 3.0 0)
+                                             #(2.0 1.1 3.0 0)))))
+   3))
