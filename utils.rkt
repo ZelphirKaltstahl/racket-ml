@@ -31,3 +31,18 @@
   (exact->inexact
    (/ (apply + lst)
       (length lst))))
+
+(define (maximum-for-procedure a-list proc-prev proc-current)
+  (define (iter remaining maximum-element)
+    (cond [(empty? remaining) maximum-element]
+          [(> (proc-current (first remaining))
+              (proc-prev maximum-element))
+           (displayln (string-append "current with tolerance is greater: "
+                                     (number->string (proc-current (first remaining)))
+                                     " > "
+                                     (number->string (proc-prev maximum-element))))
+           (iter (rest remaining)
+                 (first remaining))]
+          [else (iter (rest remaining)
+                      maximum-element)]))
+  (iter (rest a-list) (first a-list)))

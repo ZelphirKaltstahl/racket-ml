@@ -39,9 +39,22 @@
         empty
         empty))
 
+(define (make-leaf-node-from-split-node split-node)
+  (struct-copy Node split-node
+               [split-feature-index 'none]
+               [split-value 'none]
+               [left empty]
+               [right empty]))
+
 (define (leaf-node? node)
   (and (data-empty? (Node-left node))
        (data-empty? (Node-right node))))
+
+(define (last-split-node? node)
+  (cond [(leaf-node? node) false]
+        [else
+         (and (leaf-node? (Node-left node))
+              (leaf-node? (Node-right node)))]))
 
 (define (node-majority-prediction node label-column-index)
   (data-majority-prediction (Node-data node) label-column-index))
@@ -84,7 +97,6 @@ implement gini index.
     (list part1 part2)))
 
 (define (get-best-split data feature-column-indices label-column-index)
-
   (define-values (col-index value subsets cost)
     (for*/fold ([previous-best-index +inf.0]
                 [previous-best-value +inf.0]
@@ -105,51 +117,7 @@ implement gini index.
                   previous-best-value
                   previous-best-subsets
                   previous-best-cost)))))
-  (Split col-index value subsets cost)
-
-  #|
-  (define (select-better-split earlier-best-split data split-feature-index split-value)
-    (let* ([new-split-subsets (split-data data split-feature-index split-value)]
-           [new-split-cost (gini-index new-split-subsets label-column-index)])
-      (cond [(< new-split-cost (Split-cost earlier-best-split))
-             (display "new best split cost: ") (displayln new-split-cost)
-             (Split split-feature-index split-value new-split-subsets new-split-cost)]
-            [else earlier-best-split])))
-
-
-
-  ;; iterates over values of one feature, to find the best split value
-  (define (iter-values split-feature-index remaining-rows current-result)
-    (cond
-      [(data-empty? remaining-rows) current-result]
-      [(= (Split-cost current-result) 0.0) current-result]
-      [else
-       (let ([better-split
-              (select-better-split current-result
-                                   data
-                                   split-feature-index
-                                   (data-point-get-col (data-first remaining-rows)
-                                                       split-feature-index))])
-         (iter-values split-feature-index
-                      (data-rest remaining-rows)
-                      better-split))]))
-
-  ;; iterates over features which might be the split feature
-  (define (iter-features remaining-feature-column-indices current-result)
-    (display "remaining feature column indices: ")
-    (displayln remaining-feature-column-indices)
-      (cond [(empty? remaining-feature-column-indices) current-result]
-            [else (iter-features (cdr remaining-feature-column-indices)
-                                 (iter-values (car remaining-feature-column-indices)
-                                              data
-                                              current-result))]))
-  ;; starting the whole thing
-  (iter-features feature-column-indices
-                 (Split +inf.0 +inf.0 empty +inf.0))
-  |#
-  )
-
-
+  (Split col-index value subsets cost))
 
 #|
 PREDICTING:
@@ -277,6 +245,10 @@ PREDICTING:
                 (predict (Node-left tree) data-point label-column-index)]
                [else (predict (Node-right tree) data-point label-column-index)])]))
 
+(define (data-predict tree data label-column-index)
+  (data-map (lambda (data-point) (predict tree data-point label-column-index))
+            data))
+
 (define (cross-validation-split data-set n-folds #:random-state [random-state false])
   (if random-state
       (random-seed random-state)
@@ -292,7 +264,7 @@ PREDICTING:
                                  [predicted-label (in-list predicted-labels)])
                          (if (= actual-label predicted-label) 1 0))]
         [total-count (length actual-labels)])
-    (* (/ correct-count total-count) 100.0)))
+    (/ correct-count total-count)))
 
 (define (leave-one-out-k-folds folds left-out-fold)
   (define leave-one-out-filter-procedure
@@ -367,6 +339,59 @@ PREDICTING:
         [else (+ (count-leaves (Node-left tree))
                  (count-leaves (Node-right tree)))]))
 
+(define (get-last-split-nodes tree)
+  (define (traverse-collect-last-split-nodes subtree leaf-nodes)
+    (cond [(last-split-node? subtree) subtree]
+          [(leaf-node? (Node-left subtree))
+           (list (traverse-collect-last-split-nodes (Node-right subtree) leaf-nodes))]
+          [(leaf-node? (Node-right subtree))
+           (list (traverse-collect-last-split-nodes (Node-left subtree) leaf-nodes))]
+          [else (list (traverse-collect-last-split-nodes (Node-left subtree) leaf-nodes)
+                      (traverse-collect-last-split-nodes (Node-right subtree) leaf-nodes))]))
+  (traverse-collect-last-split-nodes tree empty))
+
+;; This procedure checks if the given pruned version of a tree is worse than the
+;; unpruned tree, assuming, that the tree did not yet learn from the provided
+;; pruning-set.
+(define (check-should-be-pruned? tree
+                                 pruned-tree
+                                 pruning-set
+                                 feature-column-indices
+                                 label-column-index
+                                 accuracy-tolerance)
+  (let ([actual-labels (data-get-col pruning-set label-column-index)]
+        [tree-predicted-labels (data-predict tree pruning-set label-column-index)]
+        [pruned-tree-predicted-labels (data-predict pruned-tree pruning-set label-column-index)])
+    (let ([accuracy-tree (accuracy-metric actual-labels tree-predicted-labels)]
+          [accuracy-pruned-tree (accuracy-metric actual-labels pruned-tree-predicted-labels)])
+      (< (abs (- accuracy-tree accuracy-pruned-tree)) accuracy-tolerance))))
+
+(define (prune-node-from-tree tree split-node)
+  (cond [(leaf-node? tree) tree]
+        [(equal? tree split-node)
+         (make-leaf-node-from-split-node tree)]
+        [else (struct-copy Node tree
+                           [left
+                            (prune-node-from-tree (Node-left tree)
+                                                  split-node)]
+                           [right
+                            (prune-node-from-tree (Node-right tree)
+                                                  split-node)])]))
+
+#;(define (prune-with-pruning-set tree
+                                pruning-set
+                                feature-column-indices
+                                label-column-index
+                                #:tolerance [tolerance 0.0])
+  (define (iter tree remaining-split-nodes)
+    (cond [(empty? remaining-split-nodes) tree]
+          []))
+
+  (let* ([last-split-nodes (get-last-split-nodes tree)]
+         #;[pruned-trees (map (lambda (split-node)
+                              (prune-node-from-tree tree split-node))
+                            last-split-nodes)])
+    ))
 #|
 - remove split with the least improvement in impurity / cost
   - to achieve max num of leaves
@@ -387,7 +412,7 @@ PREDICTING:
 ;; RUNNING
 ;; =========================================================
 
-
+#|
 (define shuffled-data-set (shuffle data-set))
 
 (define small-data-set
@@ -395,6 +420,7 @@ PREDICTING:
               0
               (exact-floor (/ (data-length shuffled-data-set)
                               5))))
+
 
 (collect-garbage)
 (collect-garbage)
@@ -426,7 +452,7 @@ PREDICTING:
                      #:min-impurity-split (expt 10 -7)
                      #:stop-at-no-impurity-improvement true))
    'done))
-
+|#
 #|
 IMPROVEMENTS:
 - remove data from not leaf nodes by using struct setters

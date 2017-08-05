@@ -108,6 +108,31 @@
   (check-equal? (data-point-get-col #(0 32 478 282 1) 0)
                 0))
 
+(test-case "make-leaf-node test case"
+  (check-equal? (make-leaf-node (list #(3.771244718 1.784783929 0)
+                                      #(2.728571309 1.169761413 0)
+                                      #(4.678319846 2.81281357 0)))
+                (Node (list #(3.771244718 1.784783929 0)
+                            #(2.728571309 1.169761413 0)
+                            #(4.678319846 2.81281357 0))
+                      'none
+                      'none
+                      empty
+                      empty)))
+
+(test-case "last-split-node? test case"
+  (check-false (last-split-node? (make-leaf-node (list #(3.771244718 1.784783929 0)
+                                                       #(2.728571309 1.169761413 0)
+                                                       #(4.678319846 2.81281357 1)))))
+  (check-true (last-split-node? (Node (list #(3.771244718 1.784783929 0)
+                                            #(2.728571309 1.169761413 0)
+                                            #(4.678319846 2.81281357 1))
+                                      0
+                                      4.678319846
+                                      (make-leaf-node (list #(3.771244718 1.784783929 0)
+                                                            #(2.728571309 1.169761413 0)))
+                                      (make-leaf-node (list #(4.678319846 2.81281357 1)))))))
+
 (test-case "gini-index test case"
   (check-equal? (gini-index (list
                              (list #(1.1 2.2 3.3 4.4 0)
@@ -182,10 +207,10 @@
                          #(7.444542326 0.476683375 1)
                          #(10.12493903 3.234550982 1)
                          #(6.642287351 3.319983761 1))]
-        [feature-columns-indices (list 0 1)]
+        [feature-column-indices (list 0 1)]
         [label-column-index 2])
     (check-equal? (get-best-split test-data
-                                  feature-columns-indices
+                                  feature-column-indices
                                   label-column-index)
                   (Split 0
                          6.642287351
@@ -232,7 +257,17 @@
                                    (Split-value best-split)
                                    (make-leaf-node (list #(5.0 6.0 0)))
                                    (make-leaf-node (list #(7.0 8.0 1))))))
-               "leaf-node? is not correct"))
+               "leaf-node? is not correct")
+  (let ([node (Node (list #(3.771244718 1.784783929 0)
+                          #(2.728571309 1.169761413 0)
+                          #(4.678319846 2.81281357 1))
+                    0
+                    4.678319846
+                    (make-leaf-node (list #(3.771244718 1.784783929 0)
+                                          #(2.728571309 1.169761413 0)))
+                    (make-leaf-node (list #(4.678319846 2.81281357 1))))])
+    (check-true (and (leaf-node? (Node-left node))
+                     (leaf-node? (Node-right node))))))
 
 (test-case "fit test case"
   (let ([test-data (list #(1.0 1.0 0)
@@ -248,7 +283,7 @@
                          #(2.3 1.0 1)
                          #(2.0 1.0 1)
                          #(2.4 1.0 1))]
-        [feature-columns-indices (list 0 1)]
+        [feature-column-indices (list 0 1)]
         [label-column-index 2])
     (check-equal? (fit #:train-data test-data
                        #:feature-column-indices (list 0 1)
@@ -501,6 +536,49 @@
     (check-equal? (predict tree #(2.3 1.1 0) 2) 0)
     (check-equal? (predict tree #(2.3 1.0 0) 2) 1)))
 
+(test-case "data-predict test case"
+  (let ([tree (Node (list #(1.0 1.0 0)
+                          #(1.2 1.0 0)
+                          #(1.1 1.0 0)
+                          #(1.4 1.0 0)
+                          #(1.2 1.0 0)
+                          #(1.2 1.0 0) ;
+                          #(2.3 1.1 0)
+                          #(2.0 1.1 0) ;;
+                          #(2.3 1.0 1)
+                          #(2.0 1.0 1)
+                          #(2.3 1.0 1)
+                          #(2.0 1.0 1)
+                          #(2.4 1.0 1))
+                    0
+                    2.0
+                    (make-leaf-node (list #(1.0 1.0 0)
+                                          #(1.2 1.0 0)
+                                          #(1.1 1.0 0)
+                                          #(1.4 1.0 0)
+                                          #(1.2 1.0 0)
+                                          #(1.2 1.0 0)))
+                    (Node (list #(2.3 1.1 0)
+                                #(2.0 1.1 0)
+                                #(2.3 1.0 1)
+                                #(2.0 1.0 1)
+                                #(2.3 1.0 1)
+                                #(2.0 1.0 1)
+                                #(2.4 1.0 1))
+                          1
+                          1.1
+                          (make-leaf-node (list #(2.3 1.0 1)
+                                                #(2.0 1.0 1)
+                                                #(2.3 1.0 1)
+                                                #(2.0 1.0 1)
+                                                #(2.4 1.0 1)))
+                          (make-leaf-node (list #(2.3 1.1 0)
+                                                #(2.0 1.1 0)))))])
+    (check-equal? (data-predict tree (list #(2.3 1.1 0)
+                                           #(2.3 1.0 0))
+                                2)
+                  (list 0 1))))
+
 (test-case "cross-validation-split"
   (check-equal? (cross-validation-split '(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19)
                                         4
@@ -510,22 +588,22 @@
                       (list 18 15 14 5 16)
                       (list 1 4 2 11 17))))
 
-(test-case "accuracy-metric"
+(test-case "accuracy-metric test case"
   (check-equal? (accuracy-metric (list 0 0 0 0)
                                  (list 1 0 0 0))
-                75.0)
+                3/4)
   (check-equal? (accuracy-metric (list 0 0 0 0)
                                  (list 1 1 0 0))
-                50.0)
+                1/2)
   (check-equal? (accuracy-metric (list 1 1 1 1)
                                  (list 1 0 0 0))
-                25.0)
+                1/4)
   (check-equal? (accuracy-metric (list 0 0 0 0)
                                  (list 0 0 0 0))
-                100.0)
+                1)
   (check-equal? (accuracy-metric (list 0 0 0)
                                  (list 1 0 0))
-                (* (/ 2.0 3) 100)))
+                2/3))
 
 (test-case "leave-one-out-k-folds"
   (check-equal? (leave-one-out-k-folds (list (list #(1 1)
@@ -650,3 +728,267 @@
                        (make-leaf-node (list #(2.3 1.1 3.0 0)
                                              #(2.0 1.1 3.0 0)))))
    3))
+
+(test-case "get-last-split-nodes test case"
+  (check-equal?
+   (get-last-split-nodes
+    (Node (list #(2.3 1.1 3.0 0)
+                #(2.0 1.1 3.0 0)
+                #(2.3 1.0 4.0 0)
+                #(2.0 1.0 3.0 1)
+                #(2.3 1.0 3.0 1)
+                #(2.0 1.0 3.0 1)
+                #(2.4 1.0 3.0 1))
+          1
+          1.1
+          (Node (list #(2.3 1.0 4.0 0)
+                      #(2.0 1.0 3.0 1)
+                      #(2.3 1.0 3.0 1)
+                      #(2.0 1.0 3.0 1)
+                      #(2.4 1.0 3.0 1))
+                2
+                4.0
+                (make-leaf-node (list #(2.0 1.0 3.0 1)
+                                      #(2.3 1.0 3.0 1)
+                                      #(2.0 1.0 3.0 1)
+                                      #(2.4 1.0 3.0 1)))
+                (make-leaf-node (list #(2.3 1.0 4.0 0))))
+          (make-leaf-node (list #(2.3 1.1 3.0 0)
+                                #(2.0 1.1 3.0 0)))))
+   (list (Node (list #(2.3 1.0 4.0 0)
+                     #(2.0 1.0 3.0 1)
+                     #(2.3 1.0 3.0 1)
+                     #(2.0 1.0 3.0 1)
+                     #(2.4 1.0 3.0 1))
+               2
+               4.0
+               (make-leaf-node (list #(2.0 1.0 3.0 1)
+                                     #(2.3 1.0 3.0 1)
+                                     #(2.0 1.0 3.0 1)
+                                     #(2.4 1.0 3.0 1)))
+               (make-leaf-node (list #(2.3 1.0 4.0 0)))))))
+
+(test-case "make-leaf-node-from-split-node test case"
+  (check-equal?
+   (make-leaf-node-from-split-node
+    (Node (list #(2.3 1.0 4.0 0)
+                #(2.0 1.0 3.0 1)
+                #(2.3 1.0 3.0 1)
+                #(2.0 1.0 3.0 1)
+                #(2.4 1.0 3.0 1))
+          2
+          4.0
+          (make-leaf-node (list #(2.0 1.0 3.0 1)
+                                #(2.3 1.0 3.0 1)
+                                #(2.0 1.0 3.0 1)
+                                #(2.4 1.0 3.0 1)))
+          (make-leaf-node (list #(2.3 1.0 4.0 0)))))
+   (make-leaf-node (list #(2.3 1.0 4.0 0)
+                         #(2.0 1.0 3.0 1)
+                         #(2.3 1.0 3.0 1)
+                         #(2.0 1.0 3.0 1)
+                         #(2.4 1.0 3.0 1)))))
+
+(test-case "prune-tree test case"
+  (let* ([tree (Node (list #(1.0 1.0 0)
+                           #(1.2 1.0 0)
+                           #(1.1 1.0 0)
+                           #(1.4 1.0 0)
+                           #(1.2 1.0 0)
+                           #(1.2 1.0 0) ;
+                           #(2.3 1.1 0)
+                           #(2.0 1.1 0) ;;
+                           #(2.3 1.0 1)
+                           #(2.0 1.0 1)
+                           #(2.3 1.0 1)
+                           #(2.0 1.0 1)
+                           #(2.4 1.0 1))
+                     0
+                     2.0
+                     (make-leaf-node (list #(1.0 1.0 0)
+                                           #(1.2 1.0 0)
+                                           #(1.1 1.0 0)
+                                           #(1.4 1.0 0)
+                                           #(1.2 1.0 0)
+                                           #(1.2 1.0 0)))
+                     (Node (list #(2.3 1.1 0)
+                                 #(2.0 1.1 0)
+                                 #(2.3 1.0 1)
+                                 #(2.0 1.0 1)
+                                 #(2.3 1.0 1)
+                                 #(2.0 1.0 1)
+                                 #(2.4 1.0 1))
+                           1
+                           1.1
+                           (make-leaf-node (list #(2.3 1.0 1)
+                                                 #(2.0 1.0 1)
+                                                 #(2.3 1.0 1)
+                                                 #(2.0 1.0 1)
+                                                 #(2.4 1.0 1)))
+                           (make-leaf-node (list #(2.3 1.1 0)
+                                                 #(2.0 1.1 0)))))]
+         [split-node (Node (list #(2.3 1.1 0)
+                                 #(2.0 1.1 0)
+                                 #(2.3 1.0 1)
+                                 #(2.0 1.0 1)
+                                 #(2.3 1.0 1)
+                                 #(2.0 1.0 1)
+                                 #(2.4 1.0 1))
+                           1
+                           1.1
+                           (make-leaf-node (list #(2.3 1.0 1)
+                                                 #(2.0 1.0 1)
+                                                 #(2.3 1.0 1)
+                                                 #(2.0 1.0 1)
+                                                 #(2.4 1.0 1)))
+                           (make-leaf-node (list #(2.3 1.1 0)
+                                                 #(2.0 1.1 0))))]
+         [tranformed-node (make-leaf-node-from-split-node split-node)])
+    (check-equal? (prune-node-from-tree tree split-node)
+                  (Node (list #(1.0 1.0 0)
+                              #(1.2 1.0 0)
+                              #(1.1 1.0 0)
+                              #(1.4 1.0 0)
+                              #(1.2 1.0 0)
+                              #(1.2 1.0 0) ;
+                              #(2.3 1.1 0)
+                              #(2.0 1.1 0) ;;
+                              #(2.3 1.0 1)
+                              #(2.0 1.0 1)
+                              #(2.3 1.0 1)
+                              #(2.0 1.0 1)
+                              #(2.4 1.0 1))
+                        0
+                        2.0
+                        (make-leaf-node (list #(1.0 1.0 0)
+                                              #(1.2 1.0 0)
+                                              #(1.1 1.0 0)
+                                              #(1.4 1.0 0)
+                                              #(1.2 1.0 0)
+                                              #(1.2 1.0 0)))
+                        tranformed-node))))
+
+(test-case "check-should-be-pruned? test case"
+  (let ([tree (Node (list #(1.0 0.10 0)
+                          #(1.1 0.11 0)
+                          #(1.2 0.12 0)
+                          #(1.3 0.13 0)
+                          #(1.4 0.14 0)
+                          #(1.5 0.15 0)
+                          #(1.6 0.16 0)
+                          #(1.7 0.17 0)
+                          #(1.8 0.18 0)
+                          #(1.9 0.19 0)
+                          #(2.0 0.20 0)
+                          #(2.1 0.21 0)
+                          #(2.2 0.22 0)
+                          #(2.3 0.23 0)
+                          #(2.4 0.24 0)
+                          #(2.5 0.25 0)
+                          #(2.6 0.26 0)
+                          #(2.7 0.27 0)
+                          #(3.0 0.10 0)
+                          #(3.0 0.20 1))
+                    0
+                    3.0
+                    (make-leaf-node (list #(1.0 0.10 0)
+                                          #(1.1 0.11 0)
+                                          #(1.2 0.12 0)
+                                          #(1.3 0.13 0)
+                                          #(1.4 0.14 0)
+                                          #(1.5 0.15 0)
+                                          #(1.6 0.16 0)
+                                          #(1.7 0.17 0)
+                                          #(1.8 0.18 0)
+                                          #(1.9 0.19 0)
+                                          #(2.0 0.20 0)
+                                          #(2.1 0.21 0)
+                                          #(2.2 0.22 0)
+                                          #(2.3 0.23 0)
+                                          #(2.4 0.24 0)
+                                          #(2.5 0.25 0)
+                                          #(2.6 0.26 0)
+                                          #(2.7 0.27 0)))
+                    (Node (list #(3.0 0.10 0)  ; the node, which will be pruned away
+                                #(3.0 0.20 1))
+                          1
+                          0.2
+                          (make-leaf-node (list #(3.0 0.10 0)))
+                          (make-leaf-node (list #(3.0 0.20 1)))))]
+        [pruned-tree (Node (list #(1.0 0.10 0)
+                          #(1.1 0.11 0)
+                          #(1.2 0.12 0)
+                          #(1.3 0.13 0)
+                          #(1.4 0.14 0)
+                          #(1.5 0.15 0)
+                          #(1.6 0.16 0)
+                          #(1.7 0.17 0)
+                          #(1.8 0.18 0)
+                          #(1.9 0.19 0)
+                          #(2.0 0.20 0)
+                          #(2.1 0.21 0)
+                          #(2.2 0.22 0)
+                          #(2.3 0.23 0)
+                          #(2.4 0.24 0)
+                          #(2.5 0.25 0)
+                          #(2.6 0.26 0)
+                          #(2.7 0.27 0)
+                          #(3.0 0.10 0)
+                          #(3.0 0.20 1))
+                    0
+                    3.0
+                    (make-leaf-node (list #(1.0 0.10 0)
+                                          #(1.1 0.11 0)
+                                          #(1.2 0.12 0)
+                                          #(1.3 0.13 0)
+                                          #(1.4 0.14 0)
+                                          #(1.5 0.15 0)
+                                          #(1.6 0.16 0)
+                                          #(1.7 0.17 0)
+                                          #(1.8 0.18 0)
+                                          #(1.9 0.19 0)
+                                          #(2.0 0.20 0)
+                                          #(2.1 0.21 0)
+                                          #(2.2 0.22 0)
+                                          #(2.3 0.23 0)
+                                          #(2.4 0.24 0)
+                                          #(2.5 0.25 0)
+                                          #(2.6 0.26 0)
+                                          #(2.7 0.27 0)))
+                    (make-leaf-node (list #(3.0 0.10 0)  ; the pruned node
+                                          #(3.0 0.20 1))))]
+        ;; the pruning set is only +0.01 and +0.001 in all rows
+        ;; so that the values do not pass decision boundaries
+        [pruning-set (list #(1.01 0.101 0)
+                           #(1.11 0.111 0)
+                           #(1.21 0.121 0)
+                           #(1.31 0.131 0)
+                           #(1.41 0.141 0)
+                           #(1.51 0.151 0)
+                           #(1.61 0.161 0)
+                           #(1.71 0.171 0)
+                           #(1.81 0.181 0)
+                           #(1.91 0.191 0)
+                           #(2.01 0.201 0)
+                           #(2.11 0.211 0)
+                           #(2.21 0.221 0)
+                           #(2.31 0.231 0)
+                           #(2.41 0.241 0)
+                           #(2.51 0.251 0)
+                           #(2.61 0.261 0)
+                           #(2.71 0.271 0)
+                           #(3.01 0.101 0)
+                           #(3.01 0.201 1))]
+        [feature-column-indices (list 0 1)]
+        [label-column-index 2]
+        ;; 6% classification error tolerance,
+        ;; so that 1 of 20 data points misclassification does not matter
+        [accuracy-tolerance 0.06])
+    ;; since the 5% improvement are below the tolerance for lost accuracy
+    ;; when pruning, the tree should indeed be pruned.
+    (check-true (check-should-be-pruned? tree
+                                         pruned-tree
+                                         pruning-set
+                                         feature-column-indices
+                                         label-column-index
+                                         accuracy-tolerance))))
