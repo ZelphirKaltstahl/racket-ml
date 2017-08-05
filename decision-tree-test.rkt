@@ -991,4 +991,10 @@
                                          pruning-set
                                          feature-column-indices
                                          label-column-index
-                                         accuracy-tolerance))))
+                                         accuracy-tolerance))
+    (check-false (check-should-be-pruned? tree
+                                          pruned-tree
+                                          pruning-set
+                                          feature-column-indices
+                                          label-column-index
+                                          0.04))))
