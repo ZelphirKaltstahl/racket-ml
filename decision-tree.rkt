@@ -340,31 +340,44 @@ PREDICTING:
                  (count-leaves (Node-right tree)))]))
 
 (define (get-last-split-nodes tree)
-  (define (traverse-collect-last-split-nodes subtree leaf-nodes)
-    (cond [(last-split-node? subtree) subtree]
-          [(leaf-node? (Node-left subtree))
-           (list (traverse-collect-last-split-nodes (Node-right subtree) leaf-nodes))]
-          [(leaf-node? (Node-right subtree))
-           (list (traverse-collect-last-split-nodes (Node-left subtree) leaf-nodes))]
-          [else (list (traverse-collect-last-split-nodes (Node-left subtree) leaf-nodes)
-                      (traverse-collect-last-split-nodes (Node-right subtree) leaf-nodes))]))
-  (traverse-collect-last-split-nodes tree empty))
+  (define (traverse-collect-last-split-nodes subtree)
+    (cond
+      [(leaf-node? subtree) empty]
+      [(last-split-node? subtree) (list subtree)]
+      [(leaf-node? (Node-left subtree))
+       (traverse-collect-last-split-nodes (Node-right subtree))]
+      [(leaf-node? (Node-right subtree))
+       (traverse-collect-last-split-nodes (Node-left subtree))]
+      [else
+       (append (traverse-collect-last-split-nodes (Node-left subtree))
+               (traverse-collect-last-split-nodes (Node-right subtree)))]))
+  (flatten (traverse-collect-last-split-nodes tree)))
 
-;; This procedure checks if the given pruned version of a tree is worse than the
-;; unpruned tree, assuming, that the tree did not yet learn from the provided
-;; pruning-set.
-(define (check-should-be-pruned? tree
-                                 pruned-tree
-                                 pruning-set
-                                 feature-column-indices
-                                 label-column-index
-                                 accuracy-tolerance)
-  (let ([actual-labels (data-get-col pruning-set label-column-index)]
-        [tree-predicted-labels (data-predict tree pruning-set label-column-index)]
-        [pruned-tree-predicted-labels (data-predict pruned-tree pruning-set label-column-index)])
-    (let ([accuracy-tree (accuracy-metric actual-labels tree-predicted-labels)]
-          [accuracy-pruned-tree (accuracy-metric actual-labels pruned-tree-predicted-labels)])
-      (< (abs (- accuracy-tree accuracy-pruned-tree)) accuracy-tolerance))))
+#|This procedure returns the better tree according to the accuracy metric on the
+pruning set.|#
+(define (select-better-tree tree
+                            pruned-tree
+                            pruning-set
+                            feature-column-indices
+                            label-column-index
+                            accuracy-tolerance)
+  (let ([actual-labels (data-get-col pruning-set
+                                     label-column-index)]
+        [tree-predicted-labels (data-predict tree
+                                             pruning-set
+                                             label-column-index)]
+        [pruned-tree-predicted-labels (data-predict pruned-tree
+                                                    pruning-set
+                                                    label-column-index)])
+    (let ([tree-accuracy (accuracy-metric actual-labels
+                                          tree-predicted-labels)]
+          [pruned-tree-accuracy (accuracy-metric actual-labels
+                                                 pruned-tree-predicted-labels)])
+      (displayln (string-append "accuracy tree: " (number->string tree-accuracy)))
+      (displayln (string-append "accuracy pruned-tree: " (number->string pruned-tree-accuracy)))
+      (cond [(< (abs (- tree-accuracy pruned-tree-accuracy)) accuracy-tolerance)
+             pruned-tree]
+            [else tree]))))
 
 (define (prune-node-from-tree tree split-node)
   (cond [(leaf-node? tree) tree]
@@ -378,34 +391,44 @@ PREDICTING:
                             (prune-node-from-tree (Node-right tree)
                                                   split-node)])]))
 
-#;(define (prune-with-pruning-set tree
+(define (prune-with-pruning-set tree
                                 pruning-set
                                 feature-column-indices
                                 label-column-index
                                 #:tolerance [tolerance 0.0])
-  (define (iter tree remaining-split-nodes)
+  (define (iter-split-nodes tree remaining-split-nodes)
     (cond [(empty? remaining-split-nodes) tree]
-          []))
+          [else
+           (displayln "REMAINING-SPLIT-NODES:")
+           (displayln remaining-split-nodes)
+           (iter-split-nodes
+            (select-better-tree tree
+                                (prune-node-from-tree tree (first remaining-split-nodes))
+                                pruning-set
+                                feature-column-indices
+                                label-column-index
+                                tolerance)
+            (rest remaining-split-nodes))]))
 
-  (let* ([last-split-nodes (get-last-split-nodes tree)]
-         #;[pruned-trees (map (lambda (split-node)
-                              (prune-node-from-tree tree split-node))
-                            last-split-nodes)])
-    ))
+  (define (iter-trees tree tree-leaves#)
+    (let* ([pruned-tree (iter-split-nodes tree (get-last-split-nodes tree))]
+           [pruned-tree-leaves# (count-leaves pruned-tree)])
+      (displayln "tree: ") (displayln tree)
+      (displayln "pruned tree: ") (displayln pruned-tree)
+      (cond
+        ;; in the previous call to iter-split-nodes leaves were removed
+        ;; by pruning the tree. This means that all last split nodes cannot
+        ;; be removed and thus we finished the pruning process.
+        [(= pruned-tree-leaves# tree-leaves#) tree]
+        ;; in the last call to iter-split-nodes leaves were removed,
+        ;; so there is at least one new last split node and we need
+        ;; to try to prune that
+        [else (iter-trees pruned-tree pruned-tree-leaves#)])))
+
+  (iter-trees tree (count-leaves tree)))
 #|
-- remove split with the least improvement in impurity / cost
-  - to achieve max num of leaves
-  - save the split cost inside a node?
-  - recalculate the gini-index from the left and right of a node (parent) which produced this leaf.
-  - recalculate the gini-index of the leaf.
-  - compare costs and see if they are lower than x.
-  - inner (cost?) -> inner (cost?) -> leaf
-    (parent)         (child)       -> leaf
-                     inner (cost?) -> leaf
-                     (child)       -> leaf
 - remove all splits with less improvement than x in cost?
   - but this can be done already with early stopping parameters!
--
 |#
 
 ;; =========================================================
