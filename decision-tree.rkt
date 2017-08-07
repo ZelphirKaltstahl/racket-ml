@@ -373,8 +373,8 @@ pruning set.|#
                                           tree-predicted-labels)]
           [pruned-tree-accuracy (accuracy-metric actual-labels
                                                  pruned-tree-predicted-labels)])
-      (displayln (string-append "accuracy tree: " (number->string tree-accuracy)))
-      (displayln (string-append "accuracy pruned-tree: " (number->string pruned-tree-accuracy)))
+      #;(displayln (string-append "accuracy tree: " (number->string tree-accuracy)))
+      #;(displayln (string-append "accuracy pruned-tree: " (number->string pruned-tree-accuracy)))
       (cond [(< (abs (- tree-accuracy pruned-tree-accuracy)) accuracy-tolerance)
              pruned-tree]
             [else tree]))))
@@ -399,8 +399,8 @@ pruning set.|#
   (define (iter-split-nodes tree remaining-split-nodes)
     (cond [(empty? remaining-split-nodes) tree]
           [else
-           (displayln "REMAINING-SPLIT-NODES:")
-           (displayln remaining-split-nodes)
+           #;(displayln "REMAINING-SPLIT-NODES:")
+           #;(displayln remaining-split-nodes)
            (iter-split-nodes
             (select-better-tree tree
                                 (prune-node-from-tree tree (first remaining-split-nodes))
