@@ -413,17 +413,21 @@ pruning set.|#
   (define (iter-trees tree tree-leaves#)
     (let* ([pruned-tree (iter-split-nodes tree (get-last-split-nodes tree))]
            [pruned-tree-leaves# (count-leaves pruned-tree)])
-      (displayln "tree: ") (displayln tree)
-      (displayln "pruned tree: ") (displayln pruned-tree)
+      ;;(displayln "tree: ") (displayln tree)
+      ;;(displayln "pruned tree: ") (displayln pruned-tree)
       (cond
         ;; in the previous call to iter-split-nodes leaves were removed
         ;; by pruning the tree. This means that all last split nodes cannot
         ;; be removed and thus we finished the pruning process.
-        [(= pruned-tree-leaves# tree-leaves#) tree]
+        [(= pruned-tree-leaves# tree-leaves#)
+         (displayln "STOPPING CONDITION (PRUNING): pruning further would decrease accuracy beyong tolerance")
+         tree]
         ;; in the last call to iter-split-nodes leaves were removed,
         ;; so there is at least one new last split node and we need
         ;; to try to prune that
-        [else (iter-trees pruned-tree pruned-tree-leaves#)])))
+        [else
+         (displayln "CONTINUING PRUNING: tree lost nodes in previous iteration of pruning")
+         (iter-trees pruned-tree pruned-tree-leaves#)])))
 
   (iter-trees tree (count-leaves tree)))
 #|
